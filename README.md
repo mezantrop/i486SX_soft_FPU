@@ -12,7 +12,7 @@ Essentially, this patchest tries to bring back `options MATH_EMULATE` in the ker
 * Read [Chapter 32. Obtaining the sources](https://www.netbsd.org/docs/guide/en/chap-fetch.html)
 * Read [Chapter 34. Compiling the kernel](https://www.netbsd.org/docs/guide/en/chap-kernel.html)
 
-* Add the repository contents under /src/sys/arch on NetBSD 10.0 machine, then run:
+* Add the repository contents under `/src/sys/arch` on NetBSD 10.0 machine, then run:
 
 ``` sh
 $ cd /usr/src/sys/arch/i386/conf/
@@ -29,5 +29,5 @@ $ make
 
 ## Contacts
 
-If you have an idea, a question, or have found a problem, do not hesitate to open an issue or mail me directly: [Mikhail Zakharov](zmey20000@yahoo.com)
+If you have an idea, a question, or have found a problem, do not hesitate to open an issue or mail me directly: [Mikhail Zakharov](zmey20000@yahoo.com).
 The changes I made to the original Linus Torvalds and NetBSD code are licensed under BSD-2-Clause license
