@@ -1,4 +1,4 @@
-# My attempt to bring FPU emulation back to NetBSD for i486SX CPUs
+# Bring back FPU emulation for i486SX CPU on NetBSD
 
 Essentially, this patchest tries to bring back `options MATH_EMULATE` in the kernel configuration file by reverting
 [Commit dfe83e0](https://github.com/NetBSD/src/commit/dfe83e08ca9688dd195a43113e7bc7c58fcdd14a)
