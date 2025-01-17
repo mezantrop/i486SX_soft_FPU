@@ -5,8 +5,7 @@ Essentially, this patchest tries to bring back `options MATH_EMULATE` in the ker
 
 ## Disclaimer
 
-**Warning! This is untested code, which potentially doesn't work**<br>
-The changes I made to the original Linus Torvalds and NetBSD code are licensed under BSD-2-Clause license
+**Warning! This is untested code, which potentially doesn't work**
 
 ## Installation
 
@@ -31,3 +30,4 @@ $ make
 ## Contacts
 
 If you have an idea, a question, or have found a problem, do not hesitate to open an issue or mail me directly: [Mikhail Zakharov](zmey20000@yahoo.com)
+The changes I made to the original Linus Torvalds and NetBSD code are licensed under BSD-2-Clause license
