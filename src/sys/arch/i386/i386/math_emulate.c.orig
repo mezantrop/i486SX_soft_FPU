@@ -136,7 +136,7 @@ math_emulate(info, ksi)
 			override_seg = prefix;
 			break;
 		case INSPREF_OSIZE:
-			override_datasize = prefix;	
+			override_datasize = prefix;
 			break;
 		case INSPREF_ASIZE:
 			override_addrsize = prefix;
@@ -302,7 +302,7 @@ done:
 	case 0x9b: /* XXX */
 		fcom(PST(code & 7),PST(0));
 		fpop();
-		return(0);			
+		return(0);
 	case 0x9c: /* fsubr */
 		ST(code & 7).exponent ^= 0x8000;
 		fadd(PST(0),PST(code & 7),&tmp);
@@ -1397,7 +1397,7 @@ void frndint(const temp_real * a, temp_real * b)
 		b->exponent = 0;
 }
 
-void Fscale(const temp_real *a, const temp_real *b, temp_real *c) 
+void Fscale(const temp_real *a, const temp_real *b, temp_real *c)
 {
 	temp_int ti;
 

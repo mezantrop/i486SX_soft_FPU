@@ -78,6 +78,7 @@ static void fpush(void);
 static void fxchg(temp_real_unaligned * a, temp_real_unaligned * b);
 static temp_real_unaligned * __st(int i);
 
+/* Fetch/store wrappers */
 int fubyte(const void *addr);
 int fusword(const void *addr);
 int fuword(const void *addr);
@@ -102,6 +103,7 @@ math_emulate(struct trapframe *info, ksiginfo_t *ksi) {
 	int prefix;
 
 	override_seg = override_addrsize = override_datasize = 0;
+	/* Trick compiler to avoid -Wunused-but-set-variable */
 	override_seg++;
 	override_seg--;
 
@@ -111,12 +113,10 @@ math_emulate(struct trapframe *info, ksiginfo_t *ksi) {
 	/* ever used fp? */
 	if ((l->l_md.md_flags & MDL_USEDFPU) == 0) {
 		struct pcb *pcb = lwp_getpcb(l);
-		
+
 		if (i386_use_fxsave)
-			/* cw = l->l_addr->u_pcb.pcb_savefpu.sv_xmm.sv_env.en_cw; */
 			cw = pcb->pcb_savefpu.sv_xmm.fx_cw;
 		else
-			/* cw = l->l_addr->u_pcb.pcb_savefpu.sv_87.sv_env.en_cw; */
 			cw = pcb->pcb_savefpu.sv_87.s87_cw;
 		fninit();
 		I387.cwd = cw;
@@ -152,7 +152,7 @@ math_emulate(struct trapframe *info, ksiginfo_t *ksi) {
 			override_seg = prefix;
 			break;
 		case INSPREF_OSIZE:
-			override_datasize = prefix;	
+			override_datasize = prefix;
 			break;
 		case INSPREF_ASIZE:
 			override_addrsize = prefix;
@@ -318,7 +318,7 @@ done:
 	case 0x9b: /* XXX */
 		fcom(PST(code & 7),PST(0));
 		fpop();
-		return(0);			
+		return(0);
 	case 0x9c: /* fsubr */
 		ST(code & 7).exponent ^= 0x8000;
 		fadd(PST(0),PST(code & 7),&tmp);
@@ -595,8 +595,8 @@ int fubyte(const void *addr) {
 	uint8_t value;
 
 	if (ufetch_8(addr, &value) != 0)
-		return -1; 
-    
+		return -1;
+
 	return value;
 }
 
@@ -613,7 +613,7 @@ int fuword(const void *addr) {
 	uint32_t value;
 
 	if (ufetch_32(addr, &value) != 0)
-		return -1; 
+		return -1;
 
 	return value;
 }
@@ -624,7 +624,7 @@ int subyte(void *addr, int value) {
 
 int susword(void *addr, int value) {
 	return ustore_16(addr, (uint16_t)value);
-}	
+}
 
 int suword(void *addr, int value) {
 	return ustore_32(addr, (uint32_t)value);
@@ -1456,7 +1456,7 @@ void frndint(const temp_real * a, temp_real * b)
 		b->exponent = 0;
 }
 
-void Fscale(const temp_real *a, const temp_real *b, temp_real *c) 
+void Fscale(const temp_real *a, const temp_real *b, temp_real *c)
 {
 	temp_int ti;
 
