@@ -5,7 +5,11 @@ the [dfe83e0](https://github.com/NetBSD/src/commit/dfe83e08ca9688dd195a43113e7bc
 
 ## Disclaimer
 
-**Warning! This is untested code, which potentially doesn't work**
+  **Warning! This is untested code, which potentially doesn't work**.
+
+  Saying it less officially, my lucklevel is so low, that the old i486SX laptop, I was working on lost its keyboard right
+  the moment I was supposed to deploy the patched kernel for the fist time. So, I would really appreciate it if you could
+  let me know if the kernel and FPU emulation works or not.
 
 ## Installation
 
