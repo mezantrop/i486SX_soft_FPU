@@ -34,7 +34,7 @@ $ make
 ## Prebuilts
 
 [Releases](https://github.com/mezantrop/i486SX_soft_FPU/releases) contain an image of the 512M drive with the NetBSD-10.1
-and `GENERIC_TINY` kernel patched for `MATH_EMULATE` option to run on i486SX CPU.
+and `GENERIC_TINY` kernel patched for `MATH_EMULATE` option to run on i486SX CPU. User/password: root/root, zmey/zmey
 
 ## Contacts
 
