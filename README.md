@@ -1,15 +1,12 @@
 # Bring back FPU emulation for i486SX CPU on NetBSD
 
 Essentially, this patchest tries to bring back `options MATH_EMULATE` in the kernel configuration file by reverting
-the [dfe83e0](https://github.com/NetBSD/src/commit/dfe83e08ca9688dd195a43113e7bc7c58fcdd14a) commit
+the [dfe83e0](https://github.com/NetBSD/src/commit/dfe83e08ca9688dd195a43113e7bc7c58fcdd14a) commit and adoprting it
+to the current stage of NetBSD code.
 
 ## Disclaimer
 
-  **Warning! This is untested code, which potentially doesn't work**.
-
-  Saying it less officially, my lucklevel is so low, that the old i486SX laptop, I was working on, lost its keyboard right
-  the moment I was supposed to deploy the patched kernel for the fist time. So, I would really appreciate it if you could
-  let me know if the kernel and FPU emulation works or not.
+  **Warning! This is a work-in-progress project: nothing runs properly!**
 
 ## Installation
 
@@ -31,12 +28,12 @@ $ make
 # mv netbsd /
 ```
 
-## Prebuilts
+## Prebuilt drive image
 
-[Releases](https://github.com/mezantrop/i486SX_soft_FPU/releases) contain an image of the 512M drive with the NetBSD-10.1
-and `GENERIC_TINY` kernel patched for `MATH_EMULATE` option to run on i486SX CPU. User/password: `root`/`root`, `zmey`/`zmey`
+It will appear eventually under [Releases](https://github.com/mezantrop/i486SX_soft_FPU/releases)
 
 ## Contacts
 
-If you have an idea, a question, or have found a problem, do not hesitate to open an issue or mail me directly: [Mikhail Zakharov](zmey20000@yahoo.com).
-The changes I made to the original Linus Torvalds and NetBSD code are licensed under BSD-2-Clause license
+If you have an idea, a question, or have found a problem, do not hesitate to open an issue or mail me
+directly: [Mikhail Zakharov](zmey20000@yahoo.com). My changes to the original Linus Torvalds and NetBSD code are
+licensed under BSD-2-Clause license
