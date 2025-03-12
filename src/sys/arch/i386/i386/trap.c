@@ -160,9 +160,11 @@ const char * const trap_type[] = {
 };
 int	trap_types = __arraycount(trap_type);
 
+/*
 #ifdef DEBUG
 int	trapdebug = 0;
 #endif
+*/
 
 #define	IDTVEC(name)	__CONCAT(X, name)
 
@@ -535,24 +537,6 @@ kernelfault:
 		}
 		goto out;
 
-	case T_DNA|T_USER: {
-#ifdef MATH_EMULATE
-		if (math_emulate(frame, &ksi) == 0) {
-			if (frame->tf_eflags & PSL_T)
-				goto trace;
-			return;
-		}
-		goto trapsignal;
-#else
-		KSI_INIT_TRAP(&ksi);
-		ksi.ksi_signo = SIGKILL;
-		ksi.ksi_addr = (void *)frame->tf_eip;
-		printf("pid %d killed due to lack of floating point\n",
-		    p->p_pid);
-		goto trapsignal;
-#endif
-	}
-
 	case T_BOUND|T_USER:
 	case T_OFLOW|T_USER:
 	case T_DIVIDE|T_USER:
@@ -767,9 +751,6 @@ faultcommon:
 
 	case T_BPTFLT|T_USER:		/* bpt instruction fault */
 	case T_TRCTRAP|T_USER:		/* trace trap */
-#ifdef MATH_EMULATE
-	trace:
-#endif
 		/*
 		 * Don't go single-stepping into a RAS.
 		 */

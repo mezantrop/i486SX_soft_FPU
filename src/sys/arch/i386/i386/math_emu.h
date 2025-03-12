@@ -19,54 +19,57 @@
  */
 
 typedef struct {
-	long a,b;
-	short exponent;
+	int32_t a,b;
+	int16_t exponent;
 } temp_real;
 
 typedef struct {
-	short m0,m1,m2,m3;
-	short exponent;
+	int16_t m0,m1,m2,m3;
+	int16_t exponent;
 } temp_real_unaligned;
 
+/*
 #define real_to_real(a,b) \
 ((*(long long *)(void *) (b) = *(long long *)(void *) (a)),((b)->exponent = (a)->exponent))
+*/
+#define real_to_real(a, b) memcpy((b), (a), sizeof(*(b)))
 
 typedef struct {
-	long a,b;
+	int32_t a,b;
 } long_real;
 
-typedef long short_real;
+typedef int32_t short_real;
 
 typedef struct {
-	long a,b;
-	short sign;
+	int32_t a,b;
+	int16_t sign;
 } temp_int;
 
 struct swd {
-	int ie:1;
-	int de:1;
-	int ze:1;
-	int oe:1;
-	int ue:1;
-	int pe:1;
-	int sf:1;
-	int ir:1;
-	int c0:1;
-	int c1:1;
-	int c2:1;
-	int top:3;
-	int c3:1;
-	int b:1;
+	int32_t ie:1;
+	int32_t de:1;
+	int32_t ze:1;
+	int32_t oe:1;
+	int32_t ue:1;
+	int32_t pe:1;
+	int32_t sf:1;
+	int32_t ir:1;
+	int32_t c0:1;
+	int32_t c1:1;
+	int32_t c2:1;
+	int32_t top:3;
+	int32_t c3:1;
+	int32_t b:1;
 };
 struct i387_struct {
-	long	cwd;
-	long	swd;
-	long	twd;
-	long	fip;
-	long	fcs;
-	long	foo;
-	long	fos;
-	long	st_space[20];	/* 8*10 bytes for each FP-reg = 80 bytes */
+	int32_t cwd;
+	int32_t swd;
+	int32_t	twd;
+	int32_t	fip;
+	int32_t	fcs;
+	int32_t	foo;
+	int32_t	fos;
+	int32_t st_space[20];	/* 8*10 bytes for each FP-reg = 80 bytes */
 };
 
 #define I387 (*(struct i387_struct *)&(curpcb->pcb_savefpu))

@@ -1,0 +1,1175 @@
+/*	$NetBSD: identcpu.c,v 1.123.4.1 2024/07/20 14:19:31 martin Exp $	*/
+
+/*-
+ * Copyright (c) 1999, 2000, 2001, 2006, 2007, 2008 The NetBSD Foundation, Inc.
+ * All rights reserved.
+ *
+ * This code is derived from software contributed to The NetBSD Foundation
+ * by Frank van der Linden,  and by Jason R. Thorpe.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
+ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#include <sys/cdefs.h>
+__KERNEL_RCSID(0, "$NetBSD: identcpu.c,v 1.123.4.1 2024/07/20 14:19:31 martin Exp $");
+
+#include "opt_xen.h"
+
+#include <sys/param.h>
+#include <sys/systm.h>
+#include <sys/device.h>
+#include <sys/cpu.h>
+
+#include <crypto/aes/aes_impl.h>
+#include <crypto/aes/arch/x86/aes_ni.h>
+#include <crypto/aes/arch/x86/aes_sse2.h>
+#include <crypto/aes/arch/x86/aes_ssse3.h>
+#include <crypto/aes/arch/x86/aes_via.h>
+#include <crypto/chacha/chacha_impl.h>
+#include <crypto/chacha/arch/x86/chacha_sse2.h>
+
+#include <uvm/uvm_extern.h>
+
+#include <machine/specialreg.h>
+#include <machine/pio.h>
+#include <machine/cpu.h>
+
+#include <x86/cputypes.h>
+#include <x86/cacheinfo.h>
+#include <x86/cpuvar.h>
+#include <x86/fpu.h>
+
+#include <dev/vmt/vmtreg.h>	/* for vmt_hvcall() */
+#include <dev/vmt/vmtvar.h>	/* for vmt_hvcall() */
+
+#ifndef XENPV
+#include "hyperv.h"
+#if NHYPERV > 0
+#include <x86/x86/hypervvar.h>
+#endif
+#endif
+
+static const struct x86_cache_info intel_cpuid_cache_info[] = INTEL_CACHE_INFO;
+
+static const struct x86_cache_info amd_cpuid_l2l3cache_assoc_info[] =
+	AMD_L2L3CACHE_INFO;
+
+int cpu_vendor;
+char cpu_brand_string[49];
+
+int x86_fpu_save __read_mostly;
+unsigned int x86_fpu_save_size __read_mostly = sizeof(struct save87);
+uint64_t x86_xsave_features __read_mostly = 0;
+size_t x86_xsave_offsets[XSAVE_MAX_COMPONENT+1] __read_mostly;
+size_t x86_xsave_sizes[XSAVE_MAX_COMPONENT+1] __read_mostly;
+
+/*
+ * Note: these are just the ones that may not have a cpuid instruction.
+ * We deal with the rest in a different way.
+ */
+const int i386_nocpuid_cpus[] = {
+	CPUVENDOR_INTEL, CPUCLASS_386,	/* CPU_386SX */
+	CPUVENDOR_INTEL, CPUCLASS_386,	/* CPU_386   */
+	CPUVENDOR_INTEL, CPUCLASS_486,	/* CPU_486SX */
+	CPUVENDOR_INTEL, CPUCLASS_486,	/* CPU_486   */
+	CPUVENDOR_CYRIX, CPUCLASS_486,	/* CPU_486DLC */
+	CPUVENDOR_CYRIX, CPUCLASS_486,	/* CPU_6x86 */
+	CPUVENDOR_NEXGEN, CPUCLASS_386,	/* CPU_NX586 */
+};
+
+static const char cpu_vendor_names[][10] = {
+	"Unknown", "Intel", "NS/Cyrix", "NexGen", "AMD", "IDT/VIA", "Transmeta",
+	"Vortex86"
+};
+
+static void
+cpu_probe_intel_cache(struct cpu_info *ci)
+{
+	const struct x86_cache_info *cai;
+	u_int descs[4];
+	int iterations, i, j;
+	uint8_t desc;
+
+	if (cpuid_level >= 2) {
+		/* Parse the cache info from `cpuid leaf 2', if we have it. */
+		x86_cpuid(2, descs);
+		iterations = descs[0] & 0xff;
+		while (iterations-- > 0) {
+			for (i = 0; i < 4; i++) {
+				if (descs[i] & 0x80000000)
+					continue;
+				for (j = 0; j < 4; j++) {
+					if (i == 0 && j == 0)
+						continue;
+					desc = (descs[i] >> (j * 8)) & 0xff;
+					if (desc == 0)
+						continue;
+					cai = cpu_cacheinfo_lookup(
+					    intel_cpuid_cache_info, desc);
+					if (cai != NULL) {
+						ci->ci_cinfo[cai->cai_index] =
+						    *cai;
+					}
+				}
+			}
+		}
+	}
+
+	if (cpuid_level < 4)
+		return;
+
+	/* Parse the cache info from `cpuid leaf 4', if we have it. */
+	cpu_dcp_cacheinfo(ci, 4);
+}
+
+static void
+cpu_probe_intel_errata(struct cpu_info *ci)
+{
+	u_int family, model, stepping;
+
+	family = CPUID_TO_FAMILY(ci->ci_signature);
+	model = CPUID_TO_MODEL(ci->ci_signature);
+	stepping = CPUID_TO_STEPPING(ci->ci_signature);
+
+	if (family == 0x6 && model == 0x5C && stepping == 0x9) { /* Apollo Lake */
+		wrmsr(MSR_MISC_ENABLE,
+		    rdmsr(MSR_MISC_ENABLE) & ~IA32_MISC_MWAIT_EN);
+
+		cpu_feature[1] &= ~CPUID2_MONITOR;
+		ci->ci_feat_val[1] &= ~CPUID2_MONITOR;
+	}
+}
+
+static void
+cpu_probe_intel(struct cpu_info *ci)
+{
+
+	if (cpu_vendor != CPUVENDOR_INTEL)
+		return;
+
+	cpu_probe_intel_cache(ci);
+	cpu_probe_intel_errata(ci);
+}
+
+static void
+cpu_probe_amd_cache(struct cpu_info *ci)
+{
+	const struct x86_cache_info *cp;
+	struct x86_cache_info *cai;
+	int family, model;
+	u_int descs[4];
+	u_int lfunc;
+
+	family = CPUID_TO_FAMILY(ci->ci_signature);
+	model = CPUID_TO_MODEL(ci->ci_signature);
+
+	/* K5 model 0 has none of this info. */
+	if (family == 5 && model == 0)
+		return;
+
+	/* Determine the largest extended function value. */
+	x86_cpuid(0x80000000, descs);
+	lfunc = descs[0];
+
+	if (lfunc < 0x80000005)
+		return;
+
+	/* Determine L1 cache/TLB info. */
+	x86_cpuid(0x80000005, descs);
+
+	/* K6-III and higher have large page TLBs. */
+	if ((family == 5 && model >= 9) || family >= 6) {
+		cai = &ci->ci_cinfo[CAI_ITLB2];
+		cai->cai_totalsize = AMD_L1_EAX_ITLB_ENTRIES(descs[0]);
+		cai->cai_associativity = AMD_L1_EAX_ITLB_ASSOC(descs[0]);
+		cai->cai_linesize = (4 * 1024 * 1024);
+
+		cai = &ci->ci_cinfo[CAI_DTLB2];
+		cai->cai_totalsize = AMD_L1_EAX_DTLB_ENTRIES(descs[0]);
+		cai->cai_associativity = AMD_L1_EAX_DTLB_ASSOC(descs[0]);
+		cai->cai_linesize = (4 * 1024 * 1024);
+	}
+
+	cai = &ci->ci_cinfo[CAI_ITLB];
+	cai->cai_totalsize = AMD_L1_EBX_ITLB_ENTRIES(descs[1]);
+	cai->cai_associativity = AMD_L1_EBX_ITLB_ASSOC(descs[1]);
+	cai->cai_linesize = (4 * 1024);
+
+	cai = &ci->ci_cinfo[CAI_DTLB];
+	cai->cai_totalsize = AMD_L1_EBX_DTLB_ENTRIES(descs[1]);
+	cai->cai_associativity = AMD_L1_EBX_DTLB_ASSOC(descs[1]);
+	cai->cai_linesize = (4 * 1024);
+
+	cai = &ci->ci_cinfo[CAI_DCACHE];
+	cai->cai_totalsize = AMD_L1_ECX_DC_SIZE(descs[2]);
+	cai->cai_associativity = AMD_L1_ECX_DC_ASSOC(descs[2]);
+	cai->cai_linesize = AMD_L1_ECX_DC_LS(descs[2]);
+
+	cai = &ci->ci_cinfo[CAI_ICACHE];
+	cai->cai_totalsize = AMD_L1_EDX_IC_SIZE(descs[3]);
+	cai->cai_associativity = AMD_L1_EDX_IC_ASSOC(descs[3]);
+	cai->cai_linesize = AMD_L1_EDX_IC_LS(descs[3]);
+
+	if (lfunc < 0x80000006)
+		return;
+
+	/* Determine L2 cache/TLB info. */
+	x86_cpuid(0x80000006, descs);
+
+	cai = &ci->ci_cinfo[CAI_L2CACHE];
+	cai->cai_totalsize = AMD_L2_ECX_C_SIZE(descs[2]);
+	cai->cai_associativity = AMD_L2_ECX_C_ASSOC(descs[2]);
+	cai->cai_linesize = AMD_L2_ECX_C_LS(descs[2]);
+
+	cp = cpu_cacheinfo_lookup(amd_cpuid_l2l3cache_assoc_info,
+	    cai->cai_associativity);
+	if (cp != NULL)
+		cai->cai_associativity = cp->cai_associativity;
+	else
+		cai->cai_associativity = 0;	/* XXX Unknown/reserved */
+
+	if (family < 0xf)
+		return;
+
+	/* Determine L3 cache info on AMD Family 10h and newer processors */
+	cai = &ci->ci_cinfo[CAI_L3CACHE];
+	cai->cai_totalsize = AMD_L3_EDX_C_SIZE(descs[3]);
+	cai->cai_associativity = AMD_L3_EDX_C_ASSOC(descs[3]);
+	cai->cai_linesize = AMD_L3_EDX_C_LS(descs[3]);
+
+	cp = cpu_cacheinfo_lookup(amd_cpuid_l2l3cache_assoc_info,
+	    cai->cai_associativity);
+	if (cp != NULL)
+		cai->cai_associativity = cp->cai_associativity;
+	else
+		cai->cai_associativity = 0;	/* XXX Unknown reserved */
+
+	if (lfunc < 0x80000019)
+		return;
+
+	/* Determine 1GB TLB info. */
+	x86_cpuid(0x80000019, descs);
+
+	cai = &ci->ci_cinfo[CAI_L1_1GBDTLB];
+	cai->cai_totalsize = AMD_L1_1GB_EAX_DTLB_ENTRIES(descs[1]);
+	cai->cai_associativity = AMD_L1_1GB_EAX_DTLB_ASSOC(descs[1]);
+	cai->cai_linesize = (1 * 1024);
+
+	cai = &ci->ci_cinfo[CAI_L1_1GBITLB];
+	cai->cai_totalsize = AMD_L1_1GB_EAX_IUTLB_ENTRIES(descs[0]);
+	cai->cai_associativity = AMD_L1_1GB_EAX_IUTLB_ASSOC(descs[0]);
+	cai->cai_linesize = (1 * 1024);
+
+	cai = &ci->ci_cinfo[CAI_L2_1GBDTLB];
+	cai->cai_totalsize = AMD_L2_1GB_EBX_DUTLB_ENTRIES(descs[1]);
+	cai->cai_associativity = AMD_L2_1GB_EBX_DUTLB_ASSOC(descs[1]);
+	cai->cai_linesize = (1 * 1024);
+
+	cai = &ci->ci_cinfo[CAI_L2_1GBITLB];
+	cai->cai_totalsize = AMD_L2_1GB_EBX_IUTLB_ENTRIES(descs[0]);
+	cai->cai_associativity = AMD_L2_1GB_EBX_IUTLB_ASSOC(descs[0]);
+	cai->cai_linesize = (1 * 1024);
+
+	if (lfunc < 0x8000001d)
+		return;
+
+	if (ci->ci_feat_val[3] & CPUID_TOPOEXT)
+		cpu_dcp_cacheinfo(ci, 0x8000001d);
+}
+
+static void
+cpu_probe_amd_errata(struct cpu_info *ci)
+{
+	u_int model;
+	uint64_t val;
+	int flag;
+
+	model = CPUID_TO_MODEL(ci->ci_signature);
+
+	switch (CPUID_TO_FAMILY(ci->ci_signature)) {
+	case 0x05: /* K5 */
+		if (model == 0) {
+			/*
+			 * According to the AMD Processor Recognition App Note,
+			 * the AMD-K5 Model 0 uses the wrong bit to indicate
+			 * support for global PTEs, instead using bit 9 (APIC)
+			 * rather than bit 13 (i.e. "0x200" vs. 0x2000").
+			 */
+			flag = ci->ci_feat_val[0];
+			if ((flag & CPUID_APIC) != 0)
+				flag = (flag & ~CPUID_APIC) | CPUID_PGE;
+			ci->ci_feat_val[0] = flag;
+		}
+		break;
+
+	case 0x10: /* Family 10h */
+		/*
+		 * On Family 10h, certain BIOSes do not enable WC+ support.
+		 * This causes WC+ to become CD, and degrades guest
+		 * performance at the NPT level.
+		 *
+		 * Explicitly enable WC+ if we're not a guest.
+		 */
+		if (!ISSET(ci->ci_feat_val[1], CPUID2_RAZ)) {
+			val = rdmsr(MSR_BU_CFG2);
+			val &= ~BU_CFG2_CWPLUS_DIS;
+			wrmsr(MSR_BU_CFG2, val);
+		}
+		break;
+
+	case 0x17:
+		/*
+		 * "Revision Guide for AMD Family 17h Models 00h-0Fh
+		 * Processors" revision 1.12:
+		 *
+		 * 1057 MWAIT or MWAITX Instructions May Fail to Correctly
+		 * Exit From the Monitor Event Pending State
+		 *
+		 * 1109 MWAIT Instruction May Hang a Thread
+		 */
+		if (model == 0x01) {
+			cpu_feature[1] &= ~CPUID2_MONITOR;
+			ci->ci_feat_val[1] &= ~CPUID2_MONITOR;
+		}
+		break;
+	}
+}
+
+static void
+cpu_probe_amd(struct cpu_info *ci)
+{
+
+	if (cpu_vendor != CPUVENDOR_AMD)
+		return;
+
+	cpu_probe_amd_cache(ci);
+	cpu_probe_amd_errata(ci);
+}
+
+static inline uint8_t
+cyrix_read_reg(uint8_t reg)
+{
+
+	outb(0x22, reg);
+	return inb(0x23);
+}
+
+static inline void
+cyrix_write_reg(uint8_t reg, uint8_t data)
+{
+
+	outb(0x22, reg);
+	outb(0x23, data);
+}
+
+static void
+cpu_probe_cyrix_cmn(struct cpu_info *ci)
+{
+	/*
+	 * i8254 latch check routine:
+	 *     National Geode (formerly Cyrix MediaGX) has a serious bug in
+	 *     its built-in i8254-compatible clock module (cs5510 cs5520).
+	 *     Set the variable 'clock_broken_latch' to indicate it.
+	 *
+	 * This bug is not present in the cs5530, and the flag
+	 * is disabled again in sys/arch/i386/pci/pcib.c if this later
+	 * model device is detected. Ideally, this work-around should not
+	 * even be in here, it should be in there. XXX
+	 */
+	uint8_t c3;
+#ifndef XENPV
+	extern int clock_broken_latch;
+
+	switch (ci->ci_signature) {
+	case 0x440:     /* Cyrix MediaGX */
+	case 0x540:     /* GXm */
+		clock_broken_latch = 1;
+		break;
+	}
+#endif
+
+	/* set up various cyrix registers */
+	/*
+	 * Enable suspend on halt (powersave mode).
+	 * When powersave mode is enabled, the TSC stops counting
+	 * while the CPU is halted in idle() waiting for an interrupt.
+	 * This means we can't use the TSC for interval time in
+	 * microtime(9), and thus it is disabled here.
+	 *
+	 * It still makes a perfectly good cycle counter
+	 * for program profiling, so long as you remember you're
+	 * counting cycles, and not time. Further, if you don't
+	 * mind not using powersave mode, the TSC works just fine,
+	 * so this should really be optional. XXX
+	 */
+	cyrix_write_reg(0xc2, cyrix_read_reg(0xc2) | 0x08);
+
+	/*
+	 * Do not disable the TSC on the Geode GX, it's reported to
+	 * work fine.
+	 */
+	if (ci->ci_signature != 0x552)
+		ci->ci_feat_val[0] &= ~CPUID_TSC;
+
+	/* enable access to ccr4/ccr5 */
+	c3 = cyrix_read_reg(0xC3);
+	cyrix_write_reg(0xC3, c3 | 0x10);
+	/* cyrix's workaround  for the "coma bug" */
+	cyrix_write_reg(0x31, cyrix_read_reg(0x31) | 0xf8);
+	cyrix_write_reg(0x32, cyrix_read_reg(0x32) | 0x7f);
+	cyrix_write_reg(0x33, cyrix_read_reg(0x33) & ~0xffu);
+	cyrix_write_reg(0x3c, cyrix_read_reg(0x3c) | 0x87);
+	/* disable access to ccr4/ccr5 */
+	cyrix_write_reg(0xC3, c3);
+}
+
+static void
+cpu_probe_cyrix(struct cpu_info *ci)
+{
+
+	if (cpu_vendor != CPUVENDOR_CYRIX ||
+	    CPUID_TO_FAMILY(ci->ci_signature) < 4 ||
+	    CPUID_TO_FAMILY(ci->ci_signature) > 6)
+		return;
+
+	cpu_probe_cyrix_cmn(ci);
+}
+
+static void
+cpu_probe_winchip(struct cpu_info *ci)
+{
+
+	if (cpu_vendor != CPUVENDOR_IDT ||
+	    CPUID_TO_FAMILY(ci->ci_signature) != 5)
+		return;
+
+	/* WinChip C6 */
+	if (CPUID_TO_MODEL(ci->ci_signature) == 4)
+		ci->ci_feat_val[0] &= ~CPUID_TSC;
+}
+
+static void
+cpu_probe_c3(struct cpu_info *ci)
+{
+	u_int family, model, stepping, descs[4], lfunc, msr;
+	struct x86_cache_info *cai;
+
+	if (cpu_vendor != CPUVENDOR_IDT ||
+	    CPUID_TO_FAMILY(ci->ci_signature) < 6)
+		return;
+
+	family = CPUID_TO_FAMILY(ci->ci_signature);
+	model = CPUID_TO_MODEL(ci->ci_signature);
+	stepping = CPUID_TO_STEPPING(ci->ci_signature);
+
+	if (family == 6) {
+		/*
+		 * VIA Eden ESP.
+		 *
+		 * Quoting from page 3-4 of: "VIA Eden ESP Processor Datasheet"
+		 * http://www.via.com.tw/download/mainboards/6/14/Eden20v115.pdf
+		 *
+		 * 1. The CMPXCHG8B instruction is provided and always enabled,
+		 *    however, it appears disabled in the corresponding CPUID
+		 *    function bit 0 to avoid a bug in an early version of
+		 *    Windows NT. However, this default can be changed via a
+		 *    bit in the FCR MSR.
+		 */
+		ci->ci_feat_val[0] |= CPUID_CX8;
+		wrmsr(MSR_VIA_FCR, rdmsr(MSR_VIA_FCR) | VIA_FCR_CX8_REPORT);
+
+		/*
+		 * For reference on VIA Alternate Instructions, see the VIA C3
+		 * Processor Alternate Instruction Set Application Note, 2002.
+		 * http://www.bitsavers.org/components/viaTechnologies/C3-ais-appnote.pdf
+		 *
+		 * Disable unsafe ALTINST mode for VIA C3 processors, if necessary.
+		 *
+		 * This is done for the security reasons, as some CPUs were
+		 * found with ALTINST enabled by default.  This functionality
+		 * has ability to bypass many x86 architecture memory
+		 * protections and privilege checks, exposing a possibility
+		 * for backdoors and should not be enabled unintentionally.
+		 */
+		if (model > 0x5 && model < 0xA) {
+			int disable_ais = 0;
+			x86_cpuid(0xc0000000, descs);
+			lfunc = descs[0];
+			/* Check AIS flags first if supported ("Nehemiah"). */
+			if (lfunc >= 0xc0000001) {
+				x86_cpuid(0xc0000001, descs);
+				lfunc = descs[3];
+				if ((lfunc & CPUID_VIA_HAS_AIS)
+				    && (lfunc & CPUID_VIA_DO_AIS)) {
+					disable_ais = 1;
+				}
+			} else	/* Explicitly disable AIS for pre-CX5L CPUs. */
+				disable_ais = 1;
+
+			if (disable_ais) {
+				msr = rdmsr(MSR_VIA_FCR);
+				wrmsr(MSR_VIA_FCR, msr & ~VIA_FCR_ALTINST_ENABLE);
+			}
+		}
+	}
+
+	if (family > 6 || model > 0x9 || (model == 0x9 && stepping >= 3)) {
+		/* VIA Nehemiah or later. */
+		x86_cpuid(0xc0000000, descs);
+		lfunc = descs[0];
+		if (lfunc >= 0xc0000001) {	/* has ACE, RNG */
+		    int rng_enable = 0, ace_enable = 0;
+		    x86_cpuid(0xc0000001, descs);
+		    lfunc = descs[3];
+		    ci->ci_feat_val[4] = lfunc;
+		    /* Check for and enable RNG */
+		    if (lfunc & CPUID_VIA_HAS_RNG) {
+			if (!(lfunc & CPUID_VIA_DO_RNG)) {
+			    rng_enable++;
+			    ci->ci_feat_val[4] |= CPUID_VIA_DO_RNG;
+			}
+		    }
+		    /* Check for and enable ACE (AES-CBC) */
+		    if (lfunc & CPUID_VIA_HAS_ACE) {
+			if (!(lfunc & CPUID_VIA_DO_ACE)) {
+			    ace_enable++;
+			    ci->ci_feat_val[4] |= CPUID_VIA_DO_ACE;
+			}
+		    }
+		    /* Check for and enable SHA */
+		    if (lfunc & CPUID_VIA_HAS_PHE) {
+			if (!(lfunc & CPUID_VIA_DO_PHE)) {
+			    ace_enable++;
+			    ci->ci_feat_val[4] |= CPUID_VIA_DO_PHE;
+			}
+		    }
+		    /* Check for and enable ACE2 (AES-CTR) */
+		    if (lfunc & CPUID_VIA_HAS_ACE2) {
+			if (!(lfunc & CPUID_VIA_DO_ACE2)) {
+			    ace_enable++;
+			    ci->ci_feat_val[4] |= CPUID_VIA_DO_ACE2;
+			}
+		    }
+		    /* Check for and enable PMM (modmult engine) */
+		    if (lfunc & CPUID_VIA_HAS_PMM) {
+			if (!(lfunc & CPUID_VIA_DO_PMM)) {
+			    ace_enable++;
+			    ci->ci_feat_val[4] |= CPUID_VIA_DO_PMM;
+			}
+		    }
+
+		    /*
+		     * Actually do the enables.  It's a little gross,
+		     * but per the PadLock programming guide, "Enabling
+		     * PadLock", condition 3, we must enable SSE too or
+		     * else the first use of RNG or ACE instructions
+		     * will generate a trap.
+		     *
+		     * We must do this early because of kernel RNG
+		     * initialization but it is safe without the full
+		     * FPU-detect as all these CPUs have SSE.
+		     */
+		    lcr4(rcr4() | CR4_OSFXSR);
+
+		    if (rng_enable) {
+			msr = rdmsr(MSR_VIA_RNG);
+			msr |= MSR_VIA_RNG_ENABLE;
+			/* C7 stepping 8 and subsequent CPUs have dual RNG */
+			if (model > 0xA || (model == 0xA && stepping > 0x7)) {
+				msr |= MSR_VIA_RNG_2NOISE;
+			}
+			wrmsr(MSR_VIA_RNG, msr);
+		    }
+
+		    if (ace_enable) {
+			msr = rdmsr(MSR_VIA_FCR);
+			wrmsr(MSR_VIA_FCR, msr | VIA_FCR_ACE_ENABLE);
+		    }
+		}
+	}
+
+	/* Determine the largest extended function value. */
+	x86_cpuid(0x80000000, descs);
+	lfunc = descs[0];
+
+	/*
+	 * Determine L1 cache/TLB info.
+	 */
+	if (lfunc < 0x80000005) {
+		/* No L1 cache info available. */
+		return;
+	}
+
+	x86_cpuid(0x80000005, descs);
+
+	cai = &ci->ci_cinfo[CAI_ITLB];
+	cai->cai_totalsize = VIA_L1_EBX_ITLB_ENTRIES(descs[1]);
+	cai->cai_associativity = VIA_L1_EBX_ITLB_ASSOC(descs[1]);
+	cai->cai_linesize = (4 * 1024);
+
+	cai = &ci->ci_cinfo[CAI_DTLB];
+	cai->cai_totalsize = VIA_L1_EBX_DTLB_ENTRIES(descs[1]);
+	cai->cai_associativity = VIA_L1_EBX_DTLB_ASSOC(descs[1]);
+	cai->cai_linesize = (4 * 1024);
+
+	cai = &ci->ci_cinfo[CAI_DCACHE];
+	cai->cai_totalsize = VIA_L1_ECX_DC_SIZE(descs[2]);
+	cai->cai_associativity = VIA_L1_ECX_DC_ASSOC(descs[2]);
+	cai->cai_linesize = VIA_L1_EDX_IC_LS(descs[2]);
+	if (family == 6 && model == 9 && stepping == 8) {
+		/* Erratum: stepping 8 reports 4 when it should be 2 */
+		cai->cai_associativity = 2;
+	}
+
+	cai = &ci->ci_cinfo[CAI_ICACHE];
+	cai->cai_totalsize = VIA_L1_EDX_IC_SIZE(descs[3]);
+	cai->cai_associativity = VIA_L1_EDX_IC_ASSOC(descs[3]);
+	cai->cai_linesize = VIA_L1_EDX_IC_LS(descs[3]);
+	if (family == 6 && model == 9 && stepping == 8) {
+		/* Erratum: stepping 8 reports 4 when it should be 2 */
+		cai->cai_associativity = 2;
+	}
+
+	/*
+	 * Determine L2 cache/TLB info.
+	 */
+	if (lfunc < 0x80000006) {
+		/* No L2 cache info available. */
+		return;
+	}
+
+	x86_cpuid(0x80000006, descs);
+
+	cai = &ci->ci_cinfo[CAI_L2CACHE];
+	if (family > 6 || model >= 9) {
+		cai->cai_totalsize = VIA_L2N_ECX_C_SIZE(descs[2]);
+		cai->cai_associativity = VIA_L2N_ECX_C_ASSOC(descs[2]);
+		cai->cai_linesize = VIA_L2N_ECX_C_LS(descs[2]);
+	} else {
+		cai->cai_totalsize = VIA_L2_ECX_C_SIZE(descs[2]);
+		cai->cai_associativity = VIA_L2_ECX_C_ASSOC(descs[2]);
+		cai->cai_linesize = VIA_L2_ECX_C_LS(descs[2]);
+	}
+}
+
+static void
+cpu_probe_geode(struct cpu_info *ci)
+{
+
+	if (memcmp("Geode by NSC", ci->ci_vendor, 12) != 0 ||
+	    CPUID_TO_FAMILY(ci->ci_signature) != 5)
+		return;
+
+	cpu_probe_cyrix_cmn(ci);
+	cpu_probe_amd_cache(ci);
+}
+
+static void
+cpu_probe_vortex86(struct cpu_info *ci)
+{
+#define PCI_MODE1_ADDRESS_REG	0x0cf8
+#define PCI_MODE1_DATA_REG	0x0cfc
+#define PCI_MODE1_ENABLE	0x80000000UL
+
+	uint32_t reg, idx;
+
+	if (cpu_vendor != CPUVENDOR_VORTEX86)
+		return;
+	/*
+	 * CPU model available from "Customer ID register" in
+	 * North Bridge Function 0 PCI space
+	 * we can't use pci_conf_read() because the PCI subsystem is not
+	 * not initialised early enough
+	 */
+
+	outl(PCI_MODE1_ADDRESS_REG, PCI_MODE1_ENABLE | 0x90);
+	reg = inl(PCI_MODE1_DATA_REG);
+
+	if ((reg & 0xf0ffffff) != 0x30504d44) {
+		idx = 0;
+	} else {
+		idx = (reg >> 24) & 0xf;
+	}
+
+	static const char *cpu_vortex86_flavor[] = {
+	    "??", "SX", "DX", "MX", "DX2", "MX+", "DX3", "EX", "EX2",
+	};
+	idx = idx < __arraycount(cpu_vortex86_flavor) ? idx : 0;
+	snprintf(cpu_brand_string, sizeof(cpu_brand_string), "Vortex86%s",
+	    cpu_vortex86_flavor[idx]);
+
+#undef PCI_MODE1_ENABLE
+#undef PCI_MODE1_ADDRESS_REG
+#undef PCI_MODE1_DATA_REG
+}
+
+static void
+cpu_probe_fpu_old(struct cpu_info *ci)
+{
+#if defined(__i386__) && !defined(XENPV)
+
+	clts();
+	fninit();
+
+        if (cpu_vendor == CPUVENDOR_INTEL && cpu_class == CPUCLASS_486) {
+                if ((ci->ci_feat_val[0] & CPUID_FPU) == 0) {
+                        ci->ci_flags &= ~CPUID_FPU;
+                        i386_fpu_present = 0;
+                }
+        } else
+		/* Check for 'FDIV' bug on the original Pentium */
+		if (npx586bug1(4195835, 3145727) != 0)
+			/* NB 120+MHz cpus are not affected */
+			i386_fpu_fdivbug = 1;
+
+	stts();
+#endif
+}
+
+static void
+cpu_probe_fpu(struct cpu_info *ci)
+{
+	u_int descs[4];
+	int i;
+
+	x86_fpu_save = FPU_SAVE_FSAVE;
+
+#ifdef i386
+	i386_fpu_present = 1;
+	/* If we have FXSAVE/FXRESTOR, use them. */
+	if ((ci->ci_feat_val[0] & CPUID_FXSR) == 0) {
+		i386_use_fxsave = 0;
+		cpu_probe_fpu_old(ci);
+		return;
+	}
+
+	i386_use_fxsave = 1;
+	/*
+	 * If we have SSE/SSE2, enable XMM exceptions, and
+	 * notify userland.
+	 */
+	if (ci->ci_feat_val[0] & CPUID_SSE)
+		i386_has_sse = 1;
+	if (ci->ci_feat_val[0] & CPUID_SSE2)
+		i386_has_sse2 = 1;
+#else
+	/*
+	 * For amd64 i386_use_fxsave, i386_has_sse and i386_has_sse2 are
+	 * #defined to 1, because fxsave/sse/sse2 are always present.
+	 */
+#endif
+
+	x86_fpu_save = FPU_SAVE_FXSAVE;
+	x86_fpu_save_size = sizeof(struct fxsave);
+
+	/* See if XSAVE is supported */
+	if ((ci->ci_feat_val[1] & CPUID2_XSAVE) == 0)
+		return;
+
+#ifdef XENPV
+	/*
+	 * Xen kernel can disable XSAVE via "no-xsave" option, in that case
+	 * the XSAVE/XRSTOR instructions become privileged and trigger
+	 * supervisor trap. OSXSAVE flag seems to be reliably set according
+	 * to whether XSAVE is actually available.
+	 */
+	if ((ci->ci_feat_val[1] & CPUID2_OSXSAVE) == 0)
+		return;
+#endif
+
+	x86_fpu_save = FPU_SAVE_XSAVE;
+
+	x86_cpuid2(0xd, 1, descs);
+	if (descs[0] & CPUID_PES1_XSAVEOPT)
+		x86_fpu_save = FPU_SAVE_XSAVEOPT;
+
+	/* Get features and maximum size of the save area */
+	x86_cpuid(0xd, descs);
+	if (descs[2] > sizeof(struct fxsave))
+		x86_fpu_save_size = descs[2];
+
+	x86_xsave_features = (uint64_t)descs[3] << 32 | descs[0];
+
+	/* Get component offsets and sizes for the save area */
+	for (i = XSAVE_YMM_Hi128; i < __arraycount(x86_xsave_offsets); i++) {
+		if (x86_xsave_features & __BIT(i)) {
+			x86_cpuid2(0xd, i, descs);
+			x86_xsave_offsets[i] = descs[1];
+			x86_xsave_sizes[i] = descs[0];
+		}
+	}
+}
+
+void
+cpu_probe(struct cpu_info *ci)
+{
+	u_int descs[4];
+	int i;
+	uint32_t miscbytes;
+	uint32_t brand[12];
+
+	if (ci == &cpu_info_primary) {
+		cpu_vendor = i386_nocpuid_cpus[cputype << 1];
+		cpu_class = i386_nocpuid_cpus[(cputype << 1) + 1];
+	}
+
+	if (cpuid_level < 0) {
+		/* cpuid instruction not supported */
+		cpu_probe_fpu_old(ci);
+		return;
+	}
+
+	for (i = 0; i < __arraycount(ci->ci_feat_val); i++) {
+		ci->ci_feat_val[i] = 0;
+	}
+
+	x86_cpuid(0, descs);
+	cpuid_level = descs[0];
+	ci->ci_max_cpuid = descs[0];
+
+	ci->ci_vendor[0] = descs[1];
+	ci->ci_vendor[2] = descs[2];
+	ci->ci_vendor[1] = descs[3];
+	ci->ci_vendor[3] = 0;
+
+	if (ci == &cpu_info_primary) {
+		if (memcmp(ci->ci_vendor, "GenuineIntel", 12) == 0)
+			cpu_vendor = CPUVENDOR_INTEL;
+		else if (memcmp(ci->ci_vendor, "AuthenticAMD", 12) == 0)
+			cpu_vendor = CPUVENDOR_AMD;
+		else if (memcmp(ci->ci_vendor, "CyrixInstead", 12) == 0)
+			cpu_vendor = CPUVENDOR_CYRIX;
+		else if (memcmp(ci->ci_vendor, "Geode by NSC", 12) == 0)
+			cpu_vendor = CPUVENDOR_CYRIX;
+		else if (memcmp(ci->ci_vendor, "CentaurHauls", 12) == 0)
+			cpu_vendor = CPUVENDOR_IDT;
+		else if (memcmp(ci->ci_vendor, "GenuineTMx86", 12) == 0)
+			cpu_vendor = CPUVENDOR_TRANSMETA;
+		else if (memcmp(ci->ci_vendor, "Vortex86 SoC", 12) == 0)
+			cpu_vendor = CPUVENDOR_VORTEX86;
+		else
+			cpu_vendor = CPUVENDOR_UNKNOWN;
+	}
+
+	if (cpuid_level >= 1) {
+		x86_cpuid(1, descs);
+		ci->ci_signature = descs[0];
+		miscbytes = descs[1];
+		ci->ci_feat_val[1] = descs[2];
+		ci->ci_feat_val[0] = descs[3];
+
+		if (ci == &cpu_info_primary) {
+			/* Determine family + class. */
+			cpu_class = CPUID_TO_FAMILY(ci->ci_signature)
+			    + (CPUCLASS_386 - 3);
+			if (cpu_class > CPUCLASS_686)
+				cpu_class = CPUCLASS_686;
+		}
+
+		/* CLFLUSH line size is next 8 bits */
+		if (ci->ci_feat_val[0] & CPUID_CLFSH)
+			ci->ci_cflush_lsize
+			    = __SHIFTOUT(miscbytes, CPUID_CLFLUSH_SIZE) << 3;
+		ci->ci_initapicid = __SHIFTOUT(miscbytes, CPUID_LOCAL_APIC_ID);
+	}
+
+	/*
+	 * Get the basic information from the extended cpuid leafs.
+	 * These were first implemented by amd, but most of the values
+	 * match with those generated by modern intel cpus.
+	 */
+	x86_cpuid(0x80000000, descs);
+	if (descs[0] >= 0x80000000)
+		ci->ci_max_ext_cpuid = descs[0];
+	else
+		ci->ci_max_ext_cpuid = 0;
+
+	if (ci->ci_max_ext_cpuid >= 0x80000001) {
+		/* Determine the extended feature flags. */
+		x86_cpuid(0x80000001, descs);
+		ci->ci_feat_val[3] = descs[2]; /* %ecx */
+		ci->ci_feat_val[2] = descs[3]; /* %edx */
+	}
+
+	if (ci->ci_max_ext_cpuid >= 0x80000004) {
+		x86_cpuid(0x80000002, brand);
+		x86_cpuid(0x80000003, brand + 4);
+		x86_cpuid(0x80000004, brand + 8);
+		/* Skip leading spaces on brand */
+		for (i = 0; i < 48; i++) {
+			if (((char *) brand)[i] != ' ')
+				break;
+		}
+		memcpy(cpu_brand_string, ((char *) brand) + i, 48 - i);
+	}
+
+	/*
+	 * Get the structured extended features.
+	 */
+	if (cpuid_level >= 7) {
+		x86_cpuid(7, descs);
+		ci->ci_feat_val[5] = descs[1]; /* %ebx */
+		ci->ci_feat_val[6] = descs[2]; /* %ecx */
+		ci->ci_feat_val[7] = descs[3]; /* %edx */
+	}
+
+	cpu_probe_intel(ci);
+	cpu_probe_amd(ci);
+	cpu_probe_cyrix(ci);
+	cpu_probe_winchip(ci);
+	cpu_probe_c3(ci);
+	cpu_probe_geode(ci);
+	cpu_probe_vortex86(ci);
+
+	if (ci == &cpu_info_primary) {
+		cpu_probe_fpu(ci);
+	}
+
+#ifndef XENPV
+	x86_cpu_topology(ci);
+#endif
+
+	if (cpu_vendor != CPUVENDOR_AMD && (ci->ci_feat_val[0] & CPUID_TM) &&
+	    (rdmsr(MSR_MISC_ENABLE) & (1 << 3)) == 0) {
+		/* Enable thermal monitor 1. */
+		wrmsr(MSR_MISC_ENABLE, rdmsr(MSR_MISC_ENABLE) | (1<<3));
+	}
+
+	ci->ci_feat_val[0] &= ~CPUID_FEAT_BLACKLIST;
+	if (ci == &cpu_info_primary) {
+		/* If first. Boot Processor is the cpu_feature reference. */
+		for (i = 0; i < __arraycount(cpu_feature); i++) {
+			cpu_feature[i] = ci->ci_feat_val[i];
+		}
+		identify_hypervisor();
+#ifndef XENPV
+		/* Early patch of text segment. */
+		x86_patch(true);
+#endif
+
+		/* AES */
+#ifdef __x86_64__	/* not yet implemented on i386 */
+		if (cpu_feature[1] & CPUID2_AESNI)
+			aes_md_init(&aes_ni_impl);
+		else
+#endif
+		if (cpu_feature[4] & CPUID_VIA_HAS_ACE)
+			aes_md_init(&aes_via_impl);
+		else if (i386_has_sse && i386_has_sse2 &&
+		    (cpu_feature[1] & CPUID2_SSE3) &&
+		    (cpu_feature[1] & CPUID2_SSSE3))
+			aes_md_init(&aes_ssse3_impl);
+		else if (i386_has_sse && i386_has_sse2)
+			aes_md_init(&aes_sse2_impl);
+
+		/* ChaCha */
+		if (i386_has_sse && i386_has_sse2)
+			chacha_md_init(&chacha_sse2_impl);
+	} else {
+		/*
+		 * If not first. Warn about cpu_feature mismatch for
+		 * secondary CPUs.
+		 */
+		for (i = 0; i < __arraycount(cpu_feature); i++) {
+			if (cpu_feature[i] != ci->ci_feat_val[i])
+				aprint_error_dev(ci->ci_dev,
+				    "feature mismatch: cpu_feature[%d] is "
+				    "%#x, but CPU reported %#x\n",
+				    i, cpu_feature[i], ci->ci_feat_val[i]);
+		}
+	}
+}
+
+/* Write what we know about the cpu to the console... */
+void
+cpu_identify(struct cpu_info *ci)
+{
+
+	cpu_setmodel("%s %d86-class",
+	    cpu_vendor_names[cpu_vendor], cpu_class + 3);
+	if (cpu_brand_string[0] != '\0') {
+		aprint_normal_dev(ci->ci_dev, "%s", cpu_brand_string);
+	} else {
+		aprint_normal_dev(ci->ci_dev, "%s", cpu_getmodel());
+		if (ci->ci_data.cpu_cc_freq != 0)
+			aprint_normal(", %dMHz",
+			    (int)(ci->ci_data.cpu_cc_freq / 1000000));
+	}
+	if (ci->ci_signature != 0)
+		aprint_normal(", id 0x%x", ci->ci_signature);
+	aprint_normal("\n");
+	aprint_normal_dev(ci->ci_dev, "node %u, package %u, core %u, smt %u\n",
+	    ci->ci_numa_id, ci->ci_package_id, ci->ci_core_id, ci->ci_smt_id);
+	if (cpu_brand_string[0] == '\0') {
+		strlcpy(cpu_brand_string, cpu_getmodel(),
+		    sizeof(cpu_brand_string));
+	}
+	if (cpu_class == CPUCLASS_386) {
+		panic("NetBSD requires an 80486DX or later processor");
+	}
+	if (cputype == CPU_486DLC) {
+		aprint_error("WARNING: BUGGY CYRIX CACHE\n");
+	}
+
+#if !defined(XENPV) || defined(DOM0OPS)       /* on Xen PV rdmsr is for Dom0 only */
+	if (cpu_vendor == CPUVENDOR_AMD     /* check enablement of an */
+	    && device_unit(ci->ci_dev) == 0 /* AMD feature only once */
+	    && ((cpu_feature[3] & CPUID_SVM) == CPUID_SVM)) {
+		uint64_t val;
+
+		val = rdmsr(MSR_VMCR);
+		if (((val & VMCR_SVMED) == VMCR_SVMED)
+		    && ((val & VMCR_LOCK) == VMCR_LOCK)) {
+			aprint_normal_dev(ci->ci_dev,
+				"SVM disabled by the BIOS\n");
+		}
+	}
+#endif
+
+#ifdef i386
+	if (i386_fpu_fdivbug == 1)
+		aprint_normal_dev(ci->ci_dev,
+		    "WARNING: Pentium FDIV bug detected!\n");
+
+	if (cpu_vendor == CPUVENDOR_TRANSMETA) {
+		u_int descs[4];
+		x86_cpuid(0x80860000, descs);
+		if (descs[0] >= 0x80860007)
+			/* Create longrun sysctls */
+			tmx86_init_longrun();
+	}
+#endif	/* i386 */
+
+}
+
+/*
+ * Hypervisor
+ */
+vm_guest_t vm_guest = VM_GUEST_NO;
+
+struct vm_name_guest {
+	const char *name;
+	vm_guest_t guest;
+};
+
+static const struct vm_name_guest vm_bios_vendors[] = {
+	{ "QEMU", VM_GUEST_VM },			/* QEMU */
+	{ "Plex86", VM_GUEST_VM },			/* Plex86 */
+	{ "Bochs", VM_GUEST_VM },			/* Bochs */
+	{ "Xen", VM_GUEST_VM },				/* Xen */
+	{ "BHYVE", VM_GUEST_VM },			/* bhyve */
+	{ "Seabios", VM_GUEST_VM },			/* KVM */
+	{ "innotek GmbH", VM_GUEST_VIRTUALBOX },	/* Oracle VirtualBox */
+};
+
+static const struct vm_name_guest vm_system_products[] = {
+	{ "VMware Virtual Platform", VM_GUEST_VM },	/* VMWare VM */
+	{ "Virtual Machine", VM_GUEST_VM },		/* Microsoft VirtualPC */
+	{ "VirtualBox", VM_GUEST_VIRTUALBOX },		/* Sun xVM VirtualBox */
+	{ "Parallels Virtual Platform", VM_GUEST_VM },	/* Parallels VM */
+	{ "KVM", VM_GUEST_VM },				/* KVM */
+};
+
+void
+identify_hypervisor(void)
+{
+	u_int regs[6];
+	char hv_vendor[12];
+	const char *p;
+	int i;
+
+	switch (vm_guest) {
+	case VM_GUEST_XENPV:
+	case VM_GUEST_XENPVH:
+		/* guest type already known, no bios info */
+		return;
+	default:
+		break;
+	}
+
+	/*
+	 * [RFC] CPUID usage for interaction between Hypervisors and Linux.
+	 * http://lkml.org/lkml/2008/10/1/246
+	 *
+	 * KB1009458: Mechanisms to determine if software is running in
+	 * a VMware virtual machine
+	 * http://kb.vmware.com/kb/1009458
+	 */
+	if (ISSET(cpu_feature[1], CPUID2_RAZ)) {
+		vm_guest = VM_GUEST_VM;
+		x86_cpuid(0x40000000, regs);
+		if (regs[0] >= 0x40000000) {
+			memcpy(&hv_vendor[0], &regs[1], sizeof(*regs));
+			memcpy(&hv_vendor[4], &regs[2], sizeof(*regs));
+			memcpy(&hv_vendor[8], &regs[3], sizeof(*regs));
+			if (memcmp(hv_vendor, "VMwareVMware", 12) == 0)
+				vm_guest = VM_GUEST_VMWARE;
+			else if (memcmp(hv_vendor, "Microsoft Hv", 12) == 0) {
+				vm_guest = VM_GUEST_HV;
+#if NHYPERV > 0
+				hyperv_early_init();
+#endif
+			} else if (memcmp(hv_vendor, "KVMKVMKVM\0\0\0", 12) == 0)
+				vm_guest = VM_GUEST_KVM;
+			else if (memcmp(hv_vendor, "XenVMMXenVMM", 12) == 0)
+				vm_guest = VM_GUEST_XENHVM;
+			/* FreeBSD bhyve: "bhyve bhyve " */
+			/* OpenBSD vmm:   "OpenBSDVMM58" */
+			/* NetBSD nvmm:   "___ NVMM ___" */
+		}
+		// VirtualBox returns KVM, so keep going.
+		if (vm_guest != VM_GUEST_KVM)
+			return;
+	}
+
+	/*
+	 * Examine SMBIOS strings for older hypervisors.
+	 */
+	p = pmf_get_platform("system-serial");
+	if (p != NULL) {
+		if (strncmp(p, "VMware-", 7) == 0 || strncmp(p, "VMW", 3) == 0) {
+			vmt_hvcall(VM_CMD_GET_VERSION, regs);
+			if (regs[1] == VM_MAGIC) {
+				vm_guest = VM_GUEST_VMWARE;
+				return;
+			}
+		}
+	}
+	p = pmf_get_platform("bios-vendor");
+	if (p != NULL) {
+		for (i = 0; i < __arraycount(vm_bios_vendors); i++) {
+			if (strcmp(p, vm_bios_vendors[i].name) == 0) {
+				vm_guest = vm_bios_vendors[i].guest;
+				return;
+			}
+		}
+	}
+	p = pmf_get_platform("system-product");
+	if (p != NULL) {
+		for (i = 0; i < __arraycount(vm_system_products); i++) {
+			if (strcmp(p, vm_system_products[i].name) == 0) {
+				vm_guest = vm_system_products[i].guest;
+				return;
+			}
+		}
+	}
+}
