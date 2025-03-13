@@ -1,10 +1,21 @@
-fadd:
+AS = as
+CC = gcc
+CFLAGS = -m32
+ASFLAGS =
 
-	as -o fadd.o fadd.s
-	gcc -m32 -o fadd fadd.o
+TESTS = fadd_float fadd_tfloat
 
+.PHONY: all clean
 
-all:	fadd
+all: $(TESTS)
+
+.for tst in $(TESTS)
+$(tst): $(tst).o
+	$(CC) $(CFLAGS) -o $@ ${.ALLSRC}
+
+$(tst).o: $(tst).s
+	$(AS) $(ASFLAGS) -o $@ ${.IMPSRC}
+.endfor
 
 clean:
-	rm -r *.o fadd
+	rm -rf $(TESTS) *.o

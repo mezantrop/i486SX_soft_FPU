@@ -1,5 +1,5 @@
 #
-# Perform addition of two single-precision float numbers
+# Perform addition of two single-precision (32-bit) floating point numbers
 #
 
 .section .data

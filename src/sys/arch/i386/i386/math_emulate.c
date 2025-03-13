@@ -105,6 +105,9 @@ math_emulate(struct trapframe *info, ksiginfo_t *ksi) {
 
 	static int instruction_counter = 0;  /* Global instruction counter */
 
+	printf("\n========== FPU INSTRUCTION #%d ==========\n",
+		instruction_counter++);
+
 	u_char *instr = (u_char *)info->tf_eip; 
 	printf("math_emulate: DEBUG: opcode=0x%02x at EIP=0x%08x\n",
 		instr[0], info->tf_eip);
@@ -177,15 +180,11 @@ math_emulate(struct trapframe *info, ksiginfo_t *ksi) {
 done:
 	code = htons(fusword((uint16_t *) info->tf_eip)) & 0x7ff;
 
-	printf("DEBUG: Opcode: 0x%04x\n", code);
+	printf("DEBUG: CODE: 0x%04x\n", code);
 
 	info->tf_eip += 2;
 	*((uint16_t *) &I387.fcs) = (uint16_t) info->tf_cs;
 	*((uint16_t *) &I387.fcs + 1) = code;
-
-	printf("\n========== FPU INSTRUCTION #%d ==========\n",
-		instruction_counter++);
-	dump_fpustack();
 
 	switch (code) {
 	case 0x1d0: /* fnop */
@@ -275,6 +274,8 @@ done:
 		math_abort(info, ksi, SIGILL, ILL_ILLOPC);
 	}
 
+	printf("DEBUG: CODE >> 3: 0x%04x\n", code >> 3);
+
 	switch (code >> 3) {
 	case 0x18: /* fadd */
 		fadd(PST(0),PST(code & 7),&tmp);
@@ -312,24 +313,10 @@ done:
 		return(0);
 	case 0x38: /* fld */
         	printf("DEBUG: === START FLD ===\n");
-        	dump_fpustack();  /* Print FPU state before instruction */
-
-		printf("DEBUG: Before fpush(), ST(0) = %04x %04x %04x %04x %04x\n",
-			ST(0).exponent, ST(0).m3, ST(0).m2, ST(0).m1, ST(0).m0);
 
         	fpush();
-
-		printf("DEBUG: After fpush(), ST(0) = %04x %04x %04x %04x %04x\n",
-			ST(0).exponent, ST(0).m3, ST(0).m2, ST(0).m1, ST(0).m0);
-
-		printf("DEBUG: Loading from ST(%d)\n", code & 7);
-
         	ST(0) = ST(code & 7);
 
-		printf("DEBUG: After FLD, ST(0) = %04x %04x %04x %04x %04x\n",
-			ST(0).exponent, ST(0).m3, ST(0).m2, ST(0).m1, ST(0).m0);
-
-        	dump_fpustack();  /* Print FPU state after instruction */
         	printf("DEBUG: === END FLD ===\n");
 
 		return(0);
@@ -483,6 +470,9 @@ done:
 		fpop();
 		return(0);
 	}
+
+	printf("DEBUG: (CODE >> 3) & 0xe7: 0x%04x\n", (code >> 3) & 0xe7);
+
 	switch ((code>>3) & 0xe7) {
 	case 0x22:
 		put_short_real(PST(0),info,code);
@@ -522,9 +512,16 @@ done:
 		fpop();
 		return(0);
 	case 0x65:
+		/* 1. Get real from mem (var) -> tmp
+		   2. Save tmp into FPU register 0 */
+		printf("DEBUG: === START 0x65 ===\n");
+
 		fpush();
 		get_temp_real(&tmp,info,code);
 		real_to_real(&tmp,&ST(0));
+
+		printf("DEBUG: === END 0x65 ===\n");
+
 		return(0);
 	case 0x67:
 		put_temp_real(PST(0),info,code);
@@ -576,6 +573,9 @@ done:
 		fpop();
 		return(0);
 	}
+
+	printf("DEBUG: (CODE >> 9): 0x%04x\n", code >> 9);
+
 	switch (code >> 9) {
 	case 0:
 		printf("DEBUG: Calling get_short_real()\n");
@@ -875,9 +875,18 @@ void get_temp_real(temp_real * tmp,
 	char * addr;
 
 	addr = ea(info,code);
-	tmp->a = fuword((u_long *) addr);
-	tmp->b = fuword((u_long *) addr + 1);
+
+	printf("DEBUG: get_temp_real(): ea() -> addr: %p\n", addr);
+
+	tmp->b = fuword((u_long *) addr);
+	tmp->a = fuword((u_long *) addr + 1);
+
 	tmp->exponent = fusword((u_short *) addr + 4);
+
+	printf("DEBUG: get_temp_real(): fuword() -> tmp->a: %x\n", tmp->a);
+	printf("DEBUG: get_temp_real(): fuword() -> tmp->b: %x\n", tmp->b);
+	printf("DEBUG: get_temp_real(): fuword() -> tmp->exponent: %x\n",
+		tmp->exponent);
 }
 
 void get_short_int(temp_real * tmp,
