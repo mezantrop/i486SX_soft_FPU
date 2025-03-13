@@ -619,12 +619,12 @@ fpudna(struct trapframe *frame)
 {
 #ifdef XENPV
 	/*
-	 * Xen produes spurious fpudna traps, just do nothing.
+	 * Xen produсes spurious fpudna traps, just do nothing.
 	 */
 	if (USERMODE(frame->tf_cs)) {
 		clts();
 		return;
-	} 
+	}
 #endif
 	panic("fpudna from %s, ip %p, trapframe %p",
 	    USERMODE(frame->tf_cs) ? "userland" : "kernel",
