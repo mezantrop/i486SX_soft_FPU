@@ -109,8 +109,8 @@ math_emulate(struct trapframe *info, ksiginfo_t *ksi) {
 		instruction_counter++);
 
 	u_char *instr = (u_char *)info->tf_eip; 
-	printf("math_emulate: DEBUG: opcode=0x%02x at EIP=0x%08x\n",
-		instr[0], info->tf_eip);
+	printf("math_emulate: DEBUG: opcode=0x%02x 0x%02x at EIP=0x%08x\n",
+		instr[0], instr[1], info->tf_eip);
 
 
 	override_seg = override_addrsize = override_datasize = 0;
@@ -579,18 +579,29 @@ done:
 	switch (code >> 9) {
 	case 0:
 		printf("DEBUG: Calling get_short_real()\n");
+
 		get_short_real(&tmp,info,code);
+
 		printf("DEBUG: Returned from get_short_real()\n");
+
 		break;
 	case 1:
 		get_long_int(&tmp,info,code);
 		break;
 	case 2:
+		printf("DEBUG: Calling get_long_real()\n");
+
 		get_long_real(&tmp,info,code);
+
+		printf("DEBUG: Returned from get_long_real()\n");
+
 		break;
 	case 4:
 		get_short_int(&tmp,info,code);
 	}
+
+	printf("DEBUG: (CODE >> 3) & 0x27): 0x%04x\n", (code>>3) & 0x27);
+
 	switch ((code>>3) & 0x27) {
 	case 0:
 		fadd(&tmp,PST(0),&tmp);
@@ -626,6 +637,9 @@ done:
 		real_to_real(&tmp,&ST(0));
 		return(0);
 	}
+
+	printf("DEBUG: (CODE & 0x138): 0x%04x\n", code & 0x138);
+
 	if ((code & 0x138) == 0x100) {
 		fpush();
 		real_to_real(&tmp,&ST(0));
@@ -864,9 +878,19 @@ void get_long_real(temp_real * tmp,
 	long_real lr;
 
 	addr = ea(info,code);
+
+	printf("DEBUG: get_long_real(): ea() -> addr: %p\n", addr);
+
 	lr.a = fuword((u_long *) addr);
 	lr.b = fuword((u_long *) addr + 1);
+
+	printf("DEBUG: get_long_real(): fuword() -> lr.a: %x\n", lr.a);
+	printf("DEBUG: get_long_real(): fuword() -> lr.b: %x\n", lr.b);
+
 	long_to_temp(&lr,tmp);
+
+	printf("DEBUG: tmp after long_to_temp(): exponent: %04x, significand: %08x %08x\n",
+		tmp->exponent, tmp->a, tmp->b);
 }
 
 void get_temp_real(temp_real * tmp,
