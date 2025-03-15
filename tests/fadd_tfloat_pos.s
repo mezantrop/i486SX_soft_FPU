@@ -1,6 +1,4 @@
-#
 # Perform addition of two extended precision (80-bit) floating point numbers
-#
 
 .section .data
 num1:   .tfloat 3.5

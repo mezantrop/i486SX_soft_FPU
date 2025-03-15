@@ -3,7 +3,12 @@ CC = gcc
 CFLAGS = -m32
 ASFLAGS =
 
-TESTS = fadd_float fadd_tfloat
+
+TESTS_TFLOAT = fadd_tfloat_pos fadd_tfloat_neg fadd_tfloat_zero \
+	fadd_tfloat_denorm fadd_tfloat_overflow fadd_tfloat_nan \
+	fadd_tfloat_inf
+
+TESTS = fadd_float $(TESTS_TFLOAT)
 
 .PHONY: all clean
 

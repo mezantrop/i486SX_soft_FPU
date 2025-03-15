@@ -524,8 +524,15 @@ done:
 
 		return(0);
 	case 0x67:
+		printf("DEBUG: === START 0x67 ===\n");
+
+		dump_fpustack();
 		put_temp_real(PST(0),info,code);
 		fpop();
+		dump_fpustack();
+
+		printf("DEBUG: === END 0x67 ===\n");
+
 		return(0);
 	case 0xa2:
 		put_long_real(PST(0),info,code);
@@ -881,8 +888,8 @@ void get_long_real(temp_real * tmp,
 
 	printf("DEBUG: get_long_real(): ea() -> addr: %p\n", addr);
 
-	lr.a = fuword((u_long *) addr);
-	lr.b = fuword((u_long *) addr + 1);
+	lr.b = fuword((u_long *) addr);
+	lr.a = fuword((u_long *) addr + 1);
 
 	printf("DEBUG: get_long_real(): fuword() -> lr.a: %x\n", lr.a);
 	printf("DEBUG: get_long_real(): fuword() -> lr.b: %x\n", lr.b);
@@ -1584,10 +1591,11 @@ void short_to_temp(const short_real * a, temp_real * b)
 
         b->a = (uint32_t)(mantissa >> 32);
         b->b = (uint32_t)(mantissa);
-	printf("Debug: short_to_temp(): Mantissa split. b->a: %x, b->b: %x\n", b->a, b->b);
+	printf("Debug: short_to_temp(): Mantissa split. b->a: %x, b->b: %x\n",
+		b->a, b->b);
 }
 
-
+/*
 void long_to_temp(const long_real * a, temp_real * b)
 {
 	if (!a->a && !(a->b & 0x7fffffff)) {
@@ -1603,6 +1611,40 @@ void long_to_temp(const long_real * a, temp_real * b)
 		b->exponent |= 0x8000;
 	b->b = 0x80000000 | (a->b<<11) | (((u_long)a->a)>>21);
 	b->a = a->a<<11;
+}
+*/
+
+void long_to_temp(const long_real *a, temp_real *b)
+{
+    printf("DEBUG: long_to_temp(): src a->a: %x, a->b: %x\n", a->a, a->b);
+
+    if (!a->a && !(a->b & 0x7fffffff)) {
+        b->a = b->b = 0;
+        b->exponent = (a->b) ? 0x8000 : 0;
+        return;
+    }
+
+    int exp_raw = (a->b >> 20) & 0x7FF;
+
+    uint64_t mantissa = ((uint64_t)(a->a)) | (((uint64_t)(a->b & 0x000FFFFF)) << 32);
+
+    if (a->b == 0) {
+        mantissa &= 0x00000000FFFFFFFF;
+    }
+
+    if (exp_raw == 0) {  
+        b->exponent = 0x4000;  
+    } else {  
+        b->exponent = exp_raw - 1023 + 16383;
+        if (a->b & 0x80000000)  
+            b->exponent |= 0x8000;
+    }
+
+    b->b = (uint32_t)(mantissa >> 32);
+    b->a = (uint32_t)(mantissa);
+
+    printf("DEBUG: long_to_temp(): Mantissa split. b->a: %x, b->b: %x\n",
+        b->a, b->b);
 }
 
 /*
