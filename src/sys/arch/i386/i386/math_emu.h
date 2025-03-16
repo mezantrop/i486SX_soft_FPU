@@ -19,13 +19,13 @@
  */
 
 typedef struct {
-	int32_t a,b;
-	int16_t exponent;
+	uint32_t a,b;
+	uint16_t exponent;
 } temp_real;
 
 typedef struct {
-	int16_t m0,m1,m2,m3;
-	int16_t exponent;
+	uint16_t m0,m1,m2,m3;
+	uint16_t exponent;
 } temp_real_unaligned;
 
 /*
@@ -35,14 +35,14 @@ typedef struct {
 #define real_to_real(a, b) memcpy((b), (a), sizeof(*(b)))
 
 typedef struct {
-	int32_t a,b;
+	uint32_t a,b;
 } long_real;
 
-typedef int32_t short_real;
+typedef uint32_t short_real;
 
 typedef struct {
-	int32_t a,b;
-	int16_t sign;
+	uint32_t a,b;
+	uint16_t sign;
 } temp_int;
 
 struct swd {
@@ -62,14 +62,14 @@ struct swd {
 	int32_t b:1;
 };
 struct i387_struct {
-	int32_t cwd;
-	int32_t swd;
-	int32_t	twd;
-	int32_t	fip;
-	int32_t	fcs;
-	int32_t	foo;
-	int32_t	fos;
-	int32_t st_space[20];	/* 8*10 bytes for each FP-reg = 80 bytes */
+	uint32_t cwd;
+	uint32_t swd;
+	uint32_t twd;
+	uint32_t fip;
+	uint32_t fcs;
+	uint32_t foo;
+	uint32_t fos;
+	uint32_t st_space[20];	/* 8*10 bytes for each FP-reg = 80 bytes */
 };
 
 #define I387 (*(struct i387_struct *)&(curpcb->pcb_savefpu))

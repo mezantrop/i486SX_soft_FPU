@@ -108,7 +108,7 @@ math_emulate(struct trapframe *info, ksiginfo_t *ksi) {
 	printf("\n========== FPU INSTRUCTION #%d ==========\n",
 		instruction_counter++);
 
-	u_char *instr = (u_char *)info->tf_eip; 
+	u_char *instr = (u_char *)info->tf_eip;
 	printf("math_emulate: DEBUG: opcode=0x%02x 0x%02x at EIP=0x%08x\n",
 		instr[0], instr[1], info->tf_eip);
 
@@ -123,10 +123,10 @@ math_emulate(struct trapframe *info, ksiginfo_t *ksi) {
 	/* ever used fp? */
 	if ((l->l_md.md_flags & MDL_USEDFPU) == 0) {
 		struct pcb *pcb = lwp_getpcb(l);
-		
+
 		if (i386_use_fxsave)
 			cw = pcb->pcb_savefpu.sv_xmm.fx_cw;
-		else 
+		else
 			cw = pcb->pcb_savefpu.sv_87.s87_cw;
 
 		fninit();
@@ -146,7 +146,7 @@ math_emulate(struct trapframe *info, ksiginfo_t *ksi) {
 	 * than anything else. Prefixes aren't useful for the instructions
 	 * we can emulate anyway.
 	 */
-        
+
 	while (1) {
 		prefix = fubyte((const void *)info->tf_eip);
 		switch (prefix) {
@@ -164,7 +164,7 @@ math_emulate(struct trapframe *info, ksiginfo_t *ksi) {
 			override_seg = prefix;
 			break;
 		case INSPREF_OSIZE:
-			override_datasize = prefix;	
+			override_datasize = prefix;
 			break;
 		case INSPREF_ASIZE:
 			override_addrsize = prefix;
@@ -348,7 +348,7 @@ done:
 	case 0x9b: /* XXX */
 		fcom(PST(code & 7),PST(0));
 		fpop();
-		return(0);			
+		return(0);
 	case 0x9c: /* fsubr */
 		ST(code & 7).exponent ^= 0x8000;
 		fadd(PST(0),PST(code & 7),&tmp);
@@ -721,7 +721,7 @@ int fubyte(const void *addr) {
         return -1;
     }
 
-    return (int)value;
+    return value;
 }
 
 int fusword(const void *addr) {
@@ -730,7 +730,7 @@ int fusword(const void *addr) {
 	if (ufetch_16(addr, &value) != 0)
 		return -1;
 
-	return (int)value;
+	return (uint16_t)value;
 }
 
 int fuword(const void *addr) {
@@ -739,7 +739,7 @@ int fuword(const void *addr) {
 	if (ufetch_32(addr, &value) != 0)
 		return -1;
 
-	return (int)value;
+	return value;
 }
 
 int subyte(void *addr, int value) {
@@ -839,7 +839,7 @@ char * ea(struct trapframe * info, u_short code)
 			math_abort(info, ksi, SIGILL, ILL_ILLOPN);
 #endif
 	}
-	
+
 	printf("DEBUG: ea(): mod: %d, rm: %d, offset: %x\n", mod, rm, offset);
 
 	I387.foo = offset;
@@ -914,9 +914,15 @@ void get_temp_real(temp_real * tmp,
 
 	tmp->exponent = fusword((u_short *) addr + 4);
 
+	u_short *exp_addr = (u_short *)addr + 4;
+	printf("DEBUG: exp_addr (expected exponent location): %p\n", exp_addr);
+	uint16_t raw_exp = fusword(exp_addr);
+	printf("DEBUG: raw_exp/strip from fusword(): %x %x\n",
+		raw_exp, raw_exp & 0xFFFF);
+
 	printf("DEBUG: get_temp_real(): fuword() -> tmp->a: %x\n", tmp->a);
 	printf("DEBUG: get_temp_real(): fuword() -> tmp->b: %x\n", tmp->b);
-	printf("DEBUG: get_temp_real(): fuword() -> tmp->exponent: %x\n",
+	printf("DEBUG: get_temp_real(): fusword() -> tmp->exponent: %x\n",
 		tmp->exponent);
 }
 
@@ -1008,7 +1014,7 @@ void put_short_real(const temp_real * tmp,
 	short_real tsr;		/* DEBUG */
 
 	addr = ea(info,code);
-	
+
 	tsr = fuword((u_long *) addr);
 	printf("DEBUG: put_short_real(): before temp_to_short() -> %x\n", tsr);
 
@@ -1336,9 +1342,9 @@ static void signify(temp_real * a)
            a->exponent, a->a, a->b);
 
 
-	if (a->exponent < 0) {
+	if (a->exponent & 0x8000) {
 		printf("DEBUG: signify() calling NEGINT\n");
-		
+
 		NEGINT(a);
 
         	printf("DEBUG: signify() after NEGINT: exponent: %04x, significand: %08x %08x\n",
@@ -1354,45 +1360,35 @@ static void signify(temp_real * a)
 
 static void unsignify(temp_real * a)
 {
-
     printf("DEBUG: unsignify() before: exponent: %04x, significand: %08x %08x\n",
            a->exponent, a->a, a->b);
 
-	if (!(a->a || a->b)) {
+    if (!(a->a || a->b)) {
+        printf("DEBUG: unsignify() zero value detected, setting exponent to 0\n");
+        a->exponent = 0;
+        return;
+    }
 
-		printf("DEBUG: unsignify() zero value detected, setting exponent to 0\n");
-
-		a->exponent = 0;
-		return;
-	}
-	a->exponent &= 0x7fff;
-	if (a->b < 0) {
-		printf("DEBUG: unsignify() calling NEGINT\n");
-		NEGINT(a);
-		a->exponent |= 0x8000;
-
+    if (a->exponent & 0x8000) {
+        printf("DEBUG: unsignify() calling NEGINT\n");
+        NEGINT(a);
+        a->exponent |= 0x8000;
         printf("DEBUG: unsignify() after NEGINT: exponent: %04x, significand: %08x %08x\n",
                a->exponent, a->a, a->b);
+    }
 
-	}
-	while (a->b >= 0) {
-
+    while (!(a->a & 0x80000000)) {
         printf("DEBUG: unsignify() before shift: exponent: %04x, significand: %08x %08x\n",
                a->exponent, a->a, a->b);
 
-
-		a->exponent--;
-		__asm("addl %0,%0 ; adcl %1,%1"
-			:"=r" (a->a),"=r" (a->b)
-			:"0" (a->a),"1" (a->b));
+        a->exponent--;
+        __asm("addl %0,%0 ;	 adcl %1,%1"
+              : "=r"(a->a), "=r"(a->b)
+              : "0"(a->a), "1"(a->b));
 
         printf("DEBUG: unsignify() after shift: exponent: %04x, significand: %08x %08x\n",
                a->exponent, a->a, a->b);
-
-		if (a->b <= 0) {
-			break;
-		}
-	}
+    }
 }
 
 void fadd(const temp_real * src1, const temp_real * src2, temp_real * result)
@@ -1405,9 +1401,9 @@ void fadd(const temp_real * src1, const temp_real * src2, temp_real * result)
 
 
     printf("DEBUG: fadd() source operands:\n");
-    printf("src1: exponent: %04x, significand: %08x %08x\n", 
+    printf("src1: exponent: %04x, significand: %08x %08x\n",
            src1->exponent, src1->a, src1->b);
-    printf("src2: exponent: %04x, significand: %08x %08x\n", 
+    printf("src2: exponent: %04x, significand: %08x %08x\n",
            src2->exponent, src2->a, src2->b);
 
     dump_fpustack();
@@ -1442,7 +1438,7 @@ void fadd(const temp_real * src1, const temp_real * src2, temp_real * result)
 		:"0" (b.a),"1" (b.b),"c" ((char) shft));
 
     printf("DEBUG: fadd() after shifting b:\n");
-    printf("b (shifted): exponent: %04x, significand: %08x %08x\n", 
+    printf("b (shifted): exponent: %04x, significand: %08x %08x\n",
            b.exponent, b.a, b.b);
 
 
@@ -1464,7 +1460,7 @@ void fadd(const temp_real * src1, const temp_real * src2, temp_real * result)
 	unsignify(&a);
 
     printf("DEBUG: fadd() result:\n");
-    printf("result: exponent: %04x, significand: %08x %08x\n", 
+    printf("result: exponent: %04x, significand: %08x %08x\n",
            a.exponent, a.a, a.b);
 
     dump_fpustack();
@@ -1574,7 +1570,7 @@ void short_to_temp(const short_real * a, temp_real * b)
 
 	printf("DEBUG: short_to_temp(): src: %x\n", *a);
 
-        if (!(*a & 0x7fffffff)) {  
+        if (!(*a & 0x7fffffff)) {
                 b->a = b->b = 0;
                 b->exponent = (*a) ? 0x8000 : 0;
                 return;
@@ -1582,7 +1578,7 @@ void short_to_temp(const short_real * a, temp_real * b)
 
         b->exponent = ((*a >> 23) & 0xff) - 127 + 16383;
 
-        if (*a < 0)  
+        if (*a < 0)
                 b->exponent |= 0x8000;
 
         uint64_t mantissa = ((uint64_t)(*a & 0x007FFFFF) | 0x00800000) << 40;
@@ -1632,11 +1628,11 @@ void long_to_temp(const long_real *a, temp_real *b)
         mantissa &= 0x00000000FFFFFFFF;
     }
 
-    if (exp_raw == 0) {  
-        b->exponent = 0x4000;  
-    } else {  
+    if (exp_raw == 0) {
+        b->exponent = 0x4000;
+    } else {
         b->exponent = exp_raw - 1023 + 16383;
-        if (a->b & 0x80000000)  
+        if (a->b & 0x80000000)
             b->exponent |= 0x8000;
     }
 
@@ -1825,7 +1821,7 @@ void frndint(const temp_real * a, temp_real * b)
 		b->exponent = 0;
 }
 
-void Fscale(const temp_real *a, const temp_real *b, temp_real *c) 
+void Fscale(const temp_real *a, const temp_real *b, temp_real *c)
 {
 	temp_int ti;
 
