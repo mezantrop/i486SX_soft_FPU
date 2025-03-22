@@ -1323,9 +1323,18 @@ void fdiv(const temp_real * src1, const temp_real * src2, temp_real * result)
  */
 
 #define NEGINT(a) \
-__asm("notl %0 ; notl %1 ; addl $1,%0 ; adcl $0,%1" \
-	:"=r" (a->a),"=r" (a->b) \
-	:"0" (a->a),"1" (a->b))
+    __asm__( \
+        "notl %0\n\t" \
+        "notl %1" \
+        : "=r" ((a)->a), "=r" ((a)->b) \
+        : "0" ((a)->a), "1" ((a)->b) )
+
+/*
+#define NEGINT(a) do {                \
+    (a)->a = ~(a)->a;                 \
+    (a)->b = ~(a)->b;                 \
+} while(0)
+*/
 
 static void signify(temp_real * a)
 {
@@ -1369,7 +1378,7 @@ static void unsignify(temp_real * a)
         return;
     }
 
-    if (a->exponent & 0x8000) {
+    if (a->a & 0x80000000) {
         printf("DEBUG: unsignify() calling NEGINT\n");
         NEGINT(a);
         a->exponent |= 0x8000;
@@ -1546,24 +1555,6 @@ void fucom(const temp_real * src1, const temp_real * src2)
  * There is no checking for total overflow in the conversions, though (ie
  * if the temp-real number simply won't fit in a short- or long-real.)
  */
-/*
-void short_to_temp(const short_real * a, temp_real * b)
-{
-	if (!(*a & 0x7fffffff)) {
-		b->a = b->b = 0;
-		if (*a)
-			b->exponent = 0x8000;
-		else
-			b->exponent = 0;
-		return;
-	}
-	b->exponent = ((*a>>23) & 0xff)-127+16383;
-	if (*a<0)
-		b->exponent |= 0x8000;
-	b->b = (*a<<8) | 0x80000000;
-	b->a = 0;
-}
-*/
 
 void short_to_temp(const short_real * a, temp_real * b)
 {
@@ -1590,25 +1581,6 @@ void short_to_temp(const short_real * a, temp_real * b)
 	printf("Debug: short_to_temp(): Mantissa split. b->a: %x, b->b: %x\n",
 		b->a, b->b);
 }
-
-/*
-void long_to_temp(const long_real * a, temp_real * b)
-{
-	if (!a->a && !(a->b & 0x7fffffff)) {
-		b->a = b->b = 0;
-		if (a->b)
-			b->exponent = 0x8000;
-		else
-			b->exponent = 0;
-		return;
-	}
-	b->exponent = ((a->b >> 20) & 0x7ff)-1023+16383;
-	if (a->b<0)
-		b->exponent |= 0x8000;
-	b->b = 0x80000000 | (a->b<<11) | (((u_long)a->a)>>21);
-	b->a = a->a<<11;
-}
-*/
 
 void long_to_temp(const long_real *a, temp_real *b)
 {
@@ -1642,35 +1614,6 @@ void long_to_temp(const long_real *a, temp_real *b)
     printf("DEBUG: long_to_temp(): Mantissa split. b->a: %x, b->b: %x\n",
         b->a, b->b);
 }
-
-/*
-void temp_to_short(const temp_real * a, short_real * b)
-{
-
-	if (!(a->exponent & 0x7fff)) {
-		*b = (a->exponent)?0x80000000:0;
-		return;
-	}
-	*b = ((((long) a->exponent)-16383+127) << 23) & 0x7f800000;
-	if (a->exponent < 0)
-		*b |= 0x80000000;
-	*b |= (a->b >> 8) & 0x007fffff;
-	switch (ROUNDING) {
-		case ROUND_NEAREST:
-			if ((a->b & 0xff) > 0x80)
-				++*b;
-			break;
-		case ROUND_DOWN:
-			if ((a->exponent & 0x8000) && (a->b & 0xff))
-				++*b;
-			break;
-		case ROUND_UP:
-			if (!(a->exponent & 0x8000) && (a->b & 0xff))
-				++*b;
-			break;
-	}
-}
-*/
 
 void temp_to_short(const temp_real *a, short_real *b) {
     printf("DEBUG: temp_to_short() input: exponent=0x%04X, significand=0x%08X%08X\n",
