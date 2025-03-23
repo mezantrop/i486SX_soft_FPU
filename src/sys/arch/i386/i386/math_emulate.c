@@ -1586,30 +1586,20 @@ void long_to_temp(const long_real *a, temp_real *b)
 {
     printf("DEBUG: long_to_temp(): src a->a: %x, a->b: %x\n", a->a, a->b);
 
-    if (!a->a && !(a->b & 0x7fffffff)) {
+    if (!a->a && !(a->b & 0x7FFFFFFF)) {
         b->a = b->b = 0;
         b->exponent = (a->b) ? 0x8000 : 0;
         return;
     }
 
-    int exp_raw = (a->b >> 20) & 0x7FF;
+    int exponent = ((a->a >> 20) & 0x7FF) - 1023 + 16383;
 
-    uint64_t mantissa = ((uint64_t)(a->a)) | (((uint64_t)(a->b & 0x000FFFFF)) << 32);
+    if (a->a & 0x80000000)
+        exponent |= 0x8000;
 
-    if (a->b == 0) {
-        mantissa &= 0x00000000FFFFFFFF;
-    }
-
-    if (exp_raw == 0) {
-        b->exponent = 0x4000;
-    } else {
-        b->exponent = exp_raw - 1023 + 16383;
-        if (a->b & 0x80000000)
-            b->exponent |= 0x8000;
-    }
-
-    b->b = (uint32_t)(mantissa >> 32);
-    b->a = (uint32_t)(mantissa);
+    b->exponent = exponent;
+    b->a = 0x80000000 | ((a->a & 0x000FFFFF) << 11) | (a->b >> 21);
+    b->b = a->b << 11;
 
     printf("DEBUG: long_to_temp(): Mantissa split. b->a: %x, b->b: %x\n",
         b->a, b->b);

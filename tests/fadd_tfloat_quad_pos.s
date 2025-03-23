@@ -2,7 +2,7 @@
 
 .section .data
 num1:   .tfloat 3.5
-num2:   .tfloat 2.5
+num2:   .quad 0x4004000000000000	# 2.5 in IEEE 754 (double precision, 64-bit)
 
 .section .text
 .global main

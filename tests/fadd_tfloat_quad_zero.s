@@ -1,16 +1,14 @@
-# Addition involving NaN
+# Addition with zero (3.5 + 0.0)
 
 .section .data
-nan1:
-    .word 0x7FFF
-    .quad 0xC000000000000000
-num3:   .tfloat 1.0
+num1_zero:   .tfloat 3.5
+num2_zero:   .quad 0x0000000000000000
 
 .section .text
 .global main
 main:
-    fldt  nan1
-    faddl num3
+    fldt  num1_zero
+    faddl num2_zero
 
     subl $12, %esp
     fstpt (%esp)
