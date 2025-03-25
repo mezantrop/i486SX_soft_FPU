@@ -17,7 +17,8 @@ to the current stage of NetBSD code.
 | `fstps`     | ✅ Done        | Store and pop single precision          | `D9 /3`    | `fstps [mem]`     |
 | `fldt`      | ✅ Done        | Load 80-bit extended precision          | `DB /5`    | `fldt [mem]`      |
 | `fadd`      | ✅ Done        | Add floating-point numbers              | `D8 /0`    | `fadd st(1), st`  |
-| `faddl`     | 🔄 In Progress | Add long double precision               | `DA /0`    | `faddl [mem]`     |
+| `faddl`     | ✅ Done        | Add long double precision               | `DA /0`    | `faddl [mem]`     |
+| `fildl`     | 🔄 In Progress |                                         |            |                   |
 | `fst`       | ⬜ Unchecked   | Store floating-point value              | `D9 /2`    | `fst st(1)`       |
 | `fstp`      | ⬜ Unchecked   | Store and pop floating-point value      | `D9 /3`    | `fstp st(1)`      |
 | `fstpt`     | ⬜ Unchecked   | Store 80-bit extended precision and pop | `DB /7`    | `fstpt [mem]`     |
