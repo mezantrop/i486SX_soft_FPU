@@ -6,7 +6,7 @@
 
 KERNEL="GENERIC_TINY486SX"
 
-cd /usr/src/sys/arch/i386/i386/conf
+cd /usr/src/sys/arch/i386/conf
 config "$KERNEL" &&
     cd ../compile/"$KERNEL" &&
     make clean &&
