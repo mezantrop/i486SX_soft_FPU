@@ -1775,14 +1775,20 @@ void int_to_real(const temp_int * a, temp_real * b)
 		return;
 	}
 
-	printf("DEBUG: Before normalization: exponent=%04x, significand=%08lx %08lx\n",
+	printf("DEBUG: int_to_real() before normalization: exponent=%04x, significand=%08lx %08lx\n",
 		b->exponent, b->a, b->b);
 
-	while (b->b >= 0) {
+	while (!(b->b & 0x80000000)) {
+		printf("DEBUG: int_to_real() before shift: exponent=%04x, significand=%08lx %08lx\n",
+			b->exponent, b->a, b->b);
+
 		b->exponent--;
 		__asm("addl %0,%0 ; adcl %1,%1"
 			:"=r" (b->a),"=r" (b->b)
 			:"0" (b->a),"1" (b->b));
+
+		printf("DEBUG: int_to_real() after shift: exponent=%04x, significand=%08lx %08lx\n",
+			b->exponent, b->a, b->b);
 	}
 
 	printf("DEBUG: int_to_real(): result: exponent: %04x, significand: %08lx %08lx\n",
