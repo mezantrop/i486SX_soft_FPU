@@ -471,7 +471,6 @@ done:
 		fpop();
 		return(0);
 	case 0x65:
-
 		fpush();
 		get_temp_real(&tmp,info,code);
 		real_to_real(&tmp,&ST(0));
@@ -628,7 +627,6 @@ static void fpush(void)
 	top = (top - 1) & 7;
 	I387.swd = (I387.swd & ~0x00003800) | (top << 11);
 }
-
 
 /*
 static void fpop(void)
@@ -1368,7 +1366,6 @@ void fadd(const temp_real * src1, const temp_real * src2, temp_real * result)
 	x1 = src1->exponent & 0x7fff;
 	x2 = src2->exponent & 0x7fff;
 
-
 	printf("DEBUG: fadd() source operands:\n");
 	printf("src1: exponent: %04x, significand: %08lx %08lx\n",
 		src1->exponent, src1->a, src1->b);
@@ -1389,9 +1386,9 @@ void fadd(const temp_real * src1, const temp_real * src2, temp_real * result)
 
 	printf("DEBUG: fadd() shift amount: %d\n", shft);
 
-
 	if (shft >= 64) {
-		printf("DEBUG: fadd() shift too large, returning early with a\n");
+		printf("DEBUG: fadd() shift too large, returning early with a: exponent: %04x, significand: %08lx %08lx\n",
+			a.exponent, a.a, a.b);
 		*result = a;
 		return;
 	}
@@ -1410,14 +1407,12 @@ void fadd(const temp_real * src1, const temp_real * src2, temp_real * result)
 	printf("b (shifted): exponent: %04x, significand: %08lx %08lx\n",
 		b.exponent, b.a, b.b);
 
-
 	signify(&a);
 	signify(&b);
 
 	printf("DEBUG: fadd() before addl:\n");
 	printf("a: exponent: %04x, significand: %08lx %08lx\n", a.exponent, a.a, a.b);
 	printf("b: exponent: %04x, significand: %08lx %08lx\n", b.exponent, b.a, b.b);
-
 
 	__asm("addl %4,%0 ; adcl %5,%1"
 		:"=r" (a.a),"=r" (a.b)
@@ -1487,7 +1482,9 @@ void fcom(const temp_real * src1, const temp_real * src2)
 	temp_real a;
 
 	a = *src1;
-	a.exponent ^= 0x8000;
+	/* a.exponent ^= 0x8000; */
+	if (a.exponent || a.a || a.b)
+		a.exponent ^= 0x8000;
 	fadd(&a,src2,&a);
 	ftst(&a);
 }
