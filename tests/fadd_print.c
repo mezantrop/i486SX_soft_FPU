@@ -10,7 +10,7 @@ int main() {
 	__asm__ (
 		"flds %1			\n\t"	/* Load num1 (3.5) into ST(0) */
 		"fadd %2			\n\t"	/* Add num2 (2.5) to ST(0) */
-		"fstp %0			\n\t"	/* Store result in 'result' (memory), popping the value off the stack */
+		"fstps %0			\n\t"	/* Store result in 'result' (memory), popping the value off the stack */
 		: "=m" (result)				/* Output operand */
 		: "m" (num1), "m" (num2)	/* Input operands: memory locations of num1 and num2 */
 	);

@@ -1454,7 +1454,7 @@ static void normalize(temp_real * a)
 		a->exponent = 0;
 		return;
 	}
-	while (i && a->b >= 0) {
+	while (i && (a->b & 0x80000000) == 0) {
 		i--;
 		__asm("addl %0,%0 ; adcl %1,%1"
 			:"=r" (a->a),"=r" (a->b)
@@ -1469,12 +1469,23 @@ void ftst(const temp_real * a)
 
 	clear_Cx();
 	b = *a;
+
+	printf("DEBUG: ftst(): before normalize(): b.exponent: 0x%04x, b.a: 0x%lx, b.b: 0x%lx\n",
+		b.exponent, b.a, b.b);
+
 	normalize(&b);
+
+	printf("DEBUG: ftst(): after normalize(): b.exponent: 0x%04x, b.a: %lx, b.b: %lx\n",
+		b.exponent, b.a, b.b);
+
 	if (b.a || b.b || b.exponent) {
-		if (b.exponent < 0)
+		if (b.exponent & 0x8000) {
 			set_C0();
+			printf("DEBUG: ftst(): set_C0()\n");
+		}
 	} else
 		set_C3();
+		printf("DEBUG: ftst(): set_C3()\n");
 }
 
 void fcom(const temp_real * src1, const temp_real * src2)
@@ -1482,9 +1493,9 @@ void fcom(const temp_real * src1, const temp_real * src2)
 	temp_real a;
 
 	a = *src1;
-	/* a.exponent ^= 0x8000; */
-	if (a.exponent || a.a || a.b)
-		a.exponent ^= 0x8000;
+	a.exponent ^= 0x8000;
+/*	if (a.exponent || a.a || a.b)
+		a.exponent ^= 0x8000; */
 	fadd(&a,src2,&a);
 	ftst(&a);
 }
