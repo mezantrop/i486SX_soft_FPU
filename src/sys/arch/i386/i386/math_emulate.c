@@ -880,10 +880,25 @@ void get_short_int(temp_real * tmp,
 	temp_int ti;
 
 	addr = ea(info,code);
+
+	printf("DEBUG: get_short_int(): ea() -> addr: %p\n", addr);
+
 	ti.a = (signed short) fusword((u_short *) addr);
 	ti.b = 0;
+
+	printf("DEBUG: get_short_int(): fuword() -> ti.a: %lx\n", ti.a);
+
+	/*
 	if ((ti.sign = (ti.a < 0)) != 0)
 		ti.a = - ti.a;
+	*/
+
+	ti.sign = (ti.a >> 31);
+	ti.a = (ti.sign) ? (~ti.a + 1) : ti.a;
+
+	printf("DEBUG: get_long_int(): final -> ti.sign: %x ti.a: %lx ti.b: %lx\n",
+		ti.sign, ti.a, ti.b);
+
 	int_to_real(&ti,tmp);
 }
 
@@ -902,8 +917,13 @@ void get_long_int(temp_real * tmp,
 
 	printf("DEBUG: get_long_int(): fuword() -> ti.a: %lx\n", ti.a);
 
+	/*
 	ti.sign = (ti.a & 0x80000000) != 0;
 	ti.a &= 0x7FFFFFFF;
+	*/
+
+	ti.sign = (ti.a >> 31);
+	ti.a = (ti.sign) ? (~ti.a + 1) : ti.a;
 
 	printf("DEBUG: get_long_int(): final -> ti.sign: %x ti.a: %lx ti.b: %lx\n",
 		ti.sign, ti.a, ti.b);
@@ -920,7 +940,8 @@ void get_longlong_int(temp_real * tmp,
 	addr = ea(info,code);
 	ti.a = fuword((u_long *) addr);
 	ti.b = fuword((u_long *) addr + 1);
-	if ((ti.sign = (ti.b < 0)) != 0)
+/*	if ((ti.sign = (ti.b < 0)) != 0) */
+	if ((ti.sign = (ti.b & 0x80000000) != 0))
 		__asm("notl %0 ; notl %1\n\t"
 			"addl $1,%0 ; adcl $0,%1"
 			:"=r" (ti.a),"=r" (ti.b)
@@ -1018,7 +1039,8 @@ void put_short_int(const temp_real * tmp,
 	addr = ea(info,code);
 	real_to_int(tmp,&ti);
 	if (ti.sign)
-		ti.a = -ti.a;
+		ti.a |= 0x80000000;
+/*		ti.a = -ti.a; */
 	susword((u_short *) addr,ti.a);
 }
 
@@ -1031,7 +1053,8 @@ void put_long_int(const temp_real * tmp,
 	addr = ea(info,code);
 	real_to_int(tmp,&ti);
 	if (ti.sign)
-		ti.a = -ti.a;
+		ti.a |= 0x80000000;
+/*		ti.a = -ti.a; */
 	suword((u_long *) addr, ti.a);
 }
 

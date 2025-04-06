@@ -1,1 +1,0 @@
-FPU instruction tests
