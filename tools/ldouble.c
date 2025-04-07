@@ -9,14 +9,14 @@ typedef union {
 		uint64_t integer_bit : 1;
 		uint64_t exponent : 15;
 		uint64_t sign : 1;
-	} parts;
+	} parts __attribute__((packed));
 } long_double_union;
 
 void print_long_double(uint16_t exponent, uint64_t fraction) {
 	long_double_union ld_union;
 
-	ld_union.parts.sign = 0;
-	ld_union.parts.exponent = exponent;
+	ld_union.parts.sign = exponent >> 15;
+	ld_union.parts.exponent = exponent & 0x7FFF;
 	ld_union.parts.fraction = fraction;
 	ld_union.parts.integer_bit = 1;
 
