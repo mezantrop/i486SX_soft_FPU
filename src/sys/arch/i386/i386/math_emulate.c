@@ -1589,7 +1589,7 @@ void long_to_temp(const long_real * a, temp_real * b)
 
 void temp_to_short(const temp_real * a, short_real * b)
 {
-	printf("DEBUG: temp_to_short() input: exponent=0x%04X, significand=0x%08lX%08lX\n",
+	printf("DEBUG: temp_to_short() input: exponent=0x%04X, significand=0x%08lX %08lX\n",
 		a->exponent, a->a, a->b);
 
 	if (!(a->exponent & 0x7fff)) {
@@ -1597,7 +1597,7 @@ void temp_to_short(const temp_real * a, short_real * b)
 		return;
 	}
 	*b = ((((long) a->exponent)-16383+127) << 23) & 0x7f800000;
-	if (a->exponent < 0)
+	if (a->exponent & 0x8000)
 		*b |= 0x80000000;
 	*b |= (a->b >> 8) & 0x007fffff;
 	switch (ROUNDING) {
