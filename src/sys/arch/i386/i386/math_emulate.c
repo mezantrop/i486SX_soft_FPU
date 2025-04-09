@@ -1240,6 +1240,11 @@ void fdiv(const temp_real * src1, const temp_real * src2, temp_real * result)
 	int i,sign;
 	int a[4],b[4],tmp[4] = {0,0,0,0};
 
+	printf("DEBUG: fdiv() src1: exponent: %04x, significand: %08lx %08lx\n",
+		src1->exponent, src1->a, src1->b);
+	printf("DEBUG: fdiv() src2: exponent: %04x, significand: %08lx %08lx\n",
+		src2->exponent, src2->a, src2->b);
+
 	sign = (src1->exponent ^ src2->exponent) & 0x8000;
 	if (!(src2->a || src2->b)) {
 		set_ZE();
@@ -1281,6 +1286,9 @@ void fdiv(const temp_real * src1, const temp_real * src2, temp_real * result)
 	result->exponent = i | sign;
 	result->a = tmp[2];
 	result->b = tmp[3];
+
+	printf("DEBUG: fdiv() result: exponent: %04x, significand: %08lx %08lx\n",
+		result->exponent, result->a, result->b);
 }
 
 /*
@@ -1301,15 +1309,6 @@ void fdiv(const temp_real * src1, const temp_real * src2, temp_real * result)
  * integers together. When using doubles (52 bits accuracy), the
  * 61-bit accuracy never shows at all.
  */
-
-/*
-#define NEGINT(a)						\
-	__asm__(							\
-		"notl %0\n\t"					\
-		"notl %1"						\
-		: "=r" ((a)->a), "=r" ((a)->b)	\
-		: "0" ((a)->a), "1" ((a)->b) )
-*/
 
 #define NEGINT(a) \
 __asm("notl %0 ; notl %1 ; addl $1,%0 ; adcl $0,%1" \
