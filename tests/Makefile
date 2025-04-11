@@ -13,7 +13,7 @@ TESTS_TFLOAT = fadd_tfloat_quad_pos fadd_tfloat_quad_neg \
 TEST_S = fildl_fstpt $(TESTS_FLOAT) $(TESTS_TFLOAT)
 TEST_C = fadd_print fcalc fvars short_div_float double_minus_float \
 	float_plus_ld ld_mul_int ld_plus_neg_float neg_double_mul_long \
-	neg_ld_div_char
+	neg_ld_div_char try_sub
 
 .PHONY: all clean
 

@@ -1185,7 +1185,7 @@ void fmul(const temp_real * src1, const temp_real * src2, temp_real * result)
  * temporary real division routine.
  */
 
-static void shift_left(int * c)
+static void shift_left(u_long * c)
 {
 	__asm volatile("movl (%0),%%eax ; addl %%eax,(%0)\n\t"
 		"movl 4(%0),%%eax ; adcl %%eax,4(%0)\n\t"
@@ -1194,27 +1194,32 @@ static void shift_left(int * c)
 		::"r" ((long) c):"ax");
 }
 
-static void shift_right(int * c)
+static void shift_right(u_long * c)
 {
 	__asm("shrl $1,12(%0) ; rcrl $1,8(%0) ; rcrl $1,4(%0) ; rcrl $1,(%0)"
 		::"r" ((long) c));
 }
 
-static int try_sub(int * a, int * b)
+static int try_sub(u_long *a, u_long *b)
 {
-	char ok;
-
-	__asm volatile("movl (%1),%%eax ; subl %%eax,(%2)\n\t"
-		"movl 4(%1),%%eax ; sbbl %%eax,4(%2)\n\t"
-		"movl 8(%1),%%eax ; sbbl %%eax,8(%2)\n\t"
-		"movl 12(%1),%%eax ; sbbl %%eax,12(%2)\n\t"
-		"setae %%al":"=a" (ok):"c" ((long) a),"d" ((long) b));
+	int ok;
+	__asm__ volatile (
+		"movl (%1), %%eax ; subl %%eax, (%2)\n\t"
+		"movl 4(%1), %%eax ; sbbl %%eax, 4(%2)\n\t"
+		"movl 8(%1), %%eax ; sbbl %%eax, 8(%2)\n\t"
+		"movl 12(%1), %%eax ; sbbl %%eax, 12(%2)\n\t"
+		"setae %%al\n\t"
+		"movzbl %%al, %0"
+		: "=r"(ok)
+		: "r"(b), "r"(a)
+		: "eax", "memory"
+	);
 	return ok;
 }
 
-static void div64(int * a, int * b, int * c)
+static void div64(u_long * a, u_long * b, u_long * c)
 {
-	int tmp[4];
+	u_long tmp[4];
 	int i;
 	u_int mask = 0;
 
@@ -1226,7 +1231,8 @@ static void div64(int * a, int * b, int * c)
 		}
 		tmp[0] = a[0]; tmp[1] = a[1];
 		tmp[2] = a[2]; tmp[3] = a[3];
-		if (try_sub(b,tmp)) {
+
+		if (try_sub(tmp, b)) {
 			*c |= mask;
 			a[0] = tmp[0]; a[1] = tmp[1];
 			a[2] = tmp[2]; a[3] = tmp[3];
@@ -1238,7 +1244,7 @@ static void div64(int * a, int * b, int * c)
 void fdiv(const temp_real * src1, const temp_real * src2, temp_real * result)
 {
 	int i,sign;
-	int a[4],b[4],tmp[4] = {0,0,0,0};
+	u_long a[4],b[4],tmp[4] = {0,0,0,0};
 
 	printf("DEBUG: fdiv() src1: exponent: %04x, significand: %08lx %08lx\n",
 		src1->exponent, src1->a, src1->b);
@@ -1263,17 +1269,17 @@ void fdiv(const temp_real * src1, const temp_real * src2, temp_real * result)
 	b[0] = b[1] = 0;
 	b[2] = src2->a;
 	b[3] = src2->b;
-	while (b[3] >= 0) {
+	while (!(b[3] & 0x80000000)) {
 		i++;
 		shift_left(b);
 	}
 	div64(a,b,tmp);
 	if (tmp[0] || tmp[1] || tmp[2] || tmp[3]) {
-		while (i && tmp[3] >= 0) {
+		while (i && !(tmp[3] & 0x80000000)) {
 			i--;
 			shift_left(tmp);
 		}
-		if (tmp[3] >= 0)
+		if (!(tmp[3] & 0x80000000))
 			set_DE();
 	} else
 		i = 0;
