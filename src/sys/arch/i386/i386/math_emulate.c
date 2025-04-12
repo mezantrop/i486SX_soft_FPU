@@ -663,7 +663,8 @@ static temp_real_unaligned * __st(int i)
 {
 	i += I387.swd >> 11;
 	i &= 7;
-	return (temp_real_unaligned *) (i*10 + (char *)(I387.st_space));
+	/* return (temp_real_unaligned *) (i*10 + (char *)(I387.st_space)); */
+	return &I387.st_space[i];
 }
 
 
@@ -860,12 +861,6 @@ void get_temp_real(temp_real * tmp,
 	tmp->a = fuword((u_long *) addr);
 	tmp->b = fuword((u_long *) addr + 1);
 	tmp->exponent = fusword((u_short *) addr + 4);
-
-	u_short *exp_addr = (u_short *)addr + 4;
-	printf("DEBUG: exp_addr (expected exponent location): %p\n", exp_addr);
-	uint16_t raw_exp = fusword(exp_addr);
-	printf("DEBUG: raw_exp/strip from fusword(): %x %x\n",
-		raw_exp, raw_exp & 0xFFFF);
 
 	printf("DEBUG: get_temp_real(): fuword() -> tmp->a: %lx\n", tmp->a);
 	printf("DEBUG: get_temp_real(): fuword() -> tmp->b: %lx\n", tmp->b);
@@ -1112,7 +1107,7 @@ void put_BCD(const temp_real * tmp,struct trapframe * info, u_short code)
  * temporary real multiplication routine.
  */
 
-
+/*
 static void shift(int * c)
 {
 	__asm("movl (%0),%%eax ; addl %%eax,(%0)\n\t"
@@ -1121,7 +1116,26 @@ static void shift(int * c)
 		"movl 12(%0),%%eax ; adcl %%eax,12(%0)"
 		::"r" ((long) c):"ax");
 }
+*/
 
+static void shift(u_long *c)
+{
+	__asm(
+		"movl (%0), %%eax\n\t"
+		"addl %%eax, (%0)\n\t"
+		"movl 4(%0), %%eax\n\t"
+		"adcl %%eax, 4(%0)\n\t"
+		"movl 8(%0), %%eax\n\t"
+		"adcl %%eax, 8(%0)\n\t"
+		"movl 12(%0), %%eax\n\t"
+		"adcl %%eax, 12(%0)\n\t"
+		:
+		: "r"(c)
+		: "eax", "cc"
+	);
+}
+
+/*
 static void mul64(const temp_real * a, const temp_real * b, int * c)
 {
 	__asm("movl (%0),%%eax\n\t"
@@ -1145,14 +1159,51 @@ static void mul64(const temp_real * a, const temp_real * b, int * c)
 		::"S" ((long) a),"c" ((long) b),"D" ((long) c)
 		:"ax","dx");
 }
+*/
+
+static void mul64(const temp_real *a, const temp_real *b, u_long *c)
+{
+	printf("DEBUG: mul64() src1: exponent: %04x, significand: %08lx %08lx\n",
+		a->exponent, a->a, a->b);
+	printf("DEBUG: mul64() src2: exponent: %04x, significand: %08lx %08lx\n",
+		b->exponent, b->a, b->b);
+
+	__asm("movl (%0),%%eax\n\t"
+		"mull (%1)\n\t"
+		"movl %%eax,(%2)\n\t"
+		"movl %%edx,4(%2)\n\t"
+		"movl 4(%0),%%eax\n\t"
+		"mull 4(%1)\n\t"
+		"movl %%eax,8(%2)\n\t"
+		"movl %%edx,12(%2)\n\t"
+		"movl (%0),%%eax\n\t"
+		"mull 4(%1)\n\t"
+		"addl %%eax,4(%2)\n\t"
+		"adcl %%edx,8(%2)\n\t"
+		"adcl $0,12(%2)\n\t"
+		"movl 4(%0),%%eax\n\t"
+		"mull (%1)\n\t"
+		"addl %%eax,4(%2)\n\t"
+		"adcl %%edx,8(%2)\n\t"
+		"adcl $0,12(%2)"
+		::"S" ((long)a), "c" ((long)b), "D" ((long)c)
+		: "ax", "dx");
+}
 
 void fmul(const temp_real * src1, const temp_real * src2, temp_real * result)
 {
 	int i,sign;
-	int tmp[4] = {0,0,0,0};
+	u_long tmp[4] = {0,0,0,0};
 
-	sign = (src1->exponent ^ src2->exponent) & 0x8000;
-	i = (src1->exponent & 0x7fff) + (src2->exponent & 0x7fff) - 16383 + 1;
+	temp_real s1 = *src1, s2 = *src2;
+
+/*	printf("DEBUG: fmul() src1: exponent: %04x, significand: %08lx %08lx\n",
+		src1->exponent, src1->a, src1->b);
+	printf("DEBUG: fmul() src2: exponent: %04x, significand: %08lx %08lx\n",
+		src2->exponent, src2->a, src2->b);*/
+
+	sign = (s1.exponent ^ s2.exponent) & 0x8000;
+	i = (s1.exponent & 0x7fff) + (s2.exponent & 0x7fff) - 16383 + 1;
 	if (i<0) {
 		result->exponent = sign;
 		result->a = result->b = 0;
@@ -1162,7 +1213,7 @@ void fmul(const temp_real * src1, const temp_real * src2, temp_real * result)
 		set_OE();
 		return;
 	}
-	mul64(src1,src2,tmp);
+	mul64(&s1,&s2,tmp);
 	if (tmp[0] || tmp[1] || tmp[2] || tmp[3])
 		while (i && tmp[3] >= 0) {
 			i--;
@@ -1173,6 +1224,9 @@ void fmul(const temp_real * src1, const temp_real * src2, temp_real * result)
 	result->exponent = i | sign;
 	result->a = tmp[2];
 	result->b = tmp[3];
+
+/*	printf("DEBUG: fmul() result: exponent: %04x, significand: %08lx %08lx\n",
+		result->exponent, result->a, result->b); */
 }
 
 /*
@@ -1323,66 +1377,65 @@ __asm("notl %0 ; notl %1 ; addl $1,%0 ; adcl $0,%1" \
 
 static void signify(temp_real * a)
 {
-
-	printf("DEBUG: signify() before: exponent: %04x, significand: %08lx %08lx\n",
-			a->exponent, a->a, a->b);
+/*	printf("DEBUG: signify() before: exponent: %04x, significand: %08lx %08lx\n",
+			a->exponent, a->a, a->b); */
 
 	a->exponent += 2;
 	__asm("shrdl $2,%1,%0 ; shrl $2,%1"
 		:"=r" (a->a),"=r" (a->b)
 		:"0" (a->a),"1" (a->b));
 
-	printf("DEBUG: signify() after shift: exponent: %04x, significand: %08lx %08lx\n",
-		a->exponent, a->a, a->b);
+/*	printf("DEBUG: signify() after shift: exponent: %04x, significand: %08lx %08lx\n",
+		a->exponent, a->a, a->b); */
 
 
 	if (a->exponent & 0x8000) {
-		printf("DEBUG: signify() calling NEGINT\n");
+/*		printf("DEBUG: signify() calling NEGINT\n"); */
 
 		NEGINT(a);
 
-		printf("DEBUG: signify() after NEGINT: exponent: %04x, significand: %08lx %08lx\n",
-			a->exponent, a->a, a->b);
+/*		printf("DEBUG: signify() after NEGINT: exponent: %04x, significand: %08lx %08lx\n",
+			a->exponent, a->a, a->b); */
 	}
 
 	a->exponent &= 0x7fff;
 
-	printf("DEBUG: signify() final: exponent: %04x, significand: %08lx %08lx\n",
-		a->exponent, a->a, a->b);
+/*	printf("DEBUG: signify() final: exponent: %04x, significand: %08lx %08lx\n",
+		a->exponent, a->a, a->b); */
 
 }
 
 static void unsignify(temp_real * a)
 {
-	printf("DEBUG: unsignify() before: exponent: %04x, significand: %08lx %08lx\n",
-		a->exponent, a->a, a->b);
+/*	printf("DEBUG: unsignify() before: exponent: %04x, significand: %08lx %08lx\n",
+		a->exponent, a->a, a->b); */
 
 	if (!(a->a || a->b)) {
-		printf("DEBUG: unsignify() zero value detected, setting exponent to 0\n");
+/*		printf("DEBUG: unsignify() zero value detected, setting exponent to 0\n"); */
 		a->exponent = 0;
 		return;
 	}
 
 	a->exponent &= 0x7fff;
 	if (a->b & 0x80000000) {
-		printf("DEBUG: unsignify() calling NEGINT\n");
+/*		printf("DEBUG: unsignify() calling NEGINT\n"); */
 		NEGINT(a);
 		a->exponent |= 0x8000;
-		printf("DEBUG: unsignify() after NEGINT: exponent: %04x, significand: %08lx %08lx\n",
-			a->exponent, a->a, a->b);
+/*		printf("DEBUG: unsignify() after NEGINT: exponent: %04x, significand: %08lx %08lx\n",
+			a->exponent, a->a, a->b); */
 	}
 
 	while (!(a->b & 0x80000000)) {
-		printf("DEBUG: unsignify() before shift: exponent: %04x, significand: %08lx %08lx\n",
-			a->exponent, a->a, a->b);
+/*		printf("DEBUG: unsignify() before shift: exponent: %04x, significand: %08lx %08lx\n",
+			a->exponent, a->a, a->b); */
 
 		a->exponent--;
 		__asm("addl %0,%0 ; adcl %1,%1"
 			:"=r" (a->a),"=r" (a->b)
 			:"0" (a->a),"1" (a->b));
 
-		printf("DEBUG: unsignify() after shift: exponent: %04x, significand: %08lx %08lx\n",
-			a->exponent, a->a, a->b);
+/*		printf("DEBUG: unsignify() after shift: exponent: %04x, significand: %08lx %08lx\n",
+			a->exponent, a->a, a->b); */
 	}
 }
 
@@ -1394,14 +1447,14 @@ void fadd(const temp_real * src1, const temp_real * src2, temp_real * result)
 	x1 = src1->exponent & 0x7fff;
 	x2 = src2->exponent & 0x7fff;
 
-	printf("DEBUG: fadd() source operands:\n");
+/*	printf("DEBUG: fadd() source operands:\n");
 	printf("src1: exponent: %04x, significand: %08lx %08lx\n",
 		src1->exponent, src1->a, src1->b);
 	printf("src2: exponent: %04x, significand: %08lx %08lx\n",
 		src2->exponent, src2->a, src2->b);
 
 	dump_fpustack();
-
+*/
 	if (x1 > x2) {
 		a = *src1;
 		b = *src2;
@@ -1412,16 +1465,16 @@ void fadd(const temp_real * src1, const temp_real * src2, temp_real * result)
 		shft = x2-x1;
 	}
 
-	printf("DEBUG: fadd() shift amount: %d\n", shft);
+/*	printf("DEBUG: fadd() shift amount: %d\n", shft); */
 
 	if (shft >= 64) {
-		printf("DEBUG: fadd() shift too large, returning early with a: exponent: %04x, significand: %08lx %08lx\n",
-			a.exponent, a.a, a.b);
+/*		printf("DEBUG: fadd() shift too large, returning early with a: exponent: %04x, significand: %08lx %08lx\n",
+			a.exponent, a.a, a.b); */
 		*result = a;
 		return;
 	}
 	if (shft >= 32) {
-		printf("DEBUG: fadd() shifting b by 32\n");
+/*		printf("DEBUG: fadd() shifting b by 32\n"); */
 		b.a = b.b;
 		b.b = 0;
 		shft -= 32;
@@ -1431,31 +1484,31 @@ void fadd(const temp_real * src1, const temp_real * src2, temp_real * result)
 		:"=r" (b.a),"=r" (b.b)
 		:"0" (b.a),"1" (b.b),"c" ((char) shft));
 
-	printf("DEBUG: fadd() after shifting b:\n");
+/*	printf("DEBUG: fadd() after shifting b:\n");
 	printf("b (shifted): exponent: %04x, significand: %08lx %08lx\n",
 		b.exponent, b.a, b.b);
-
+*/
 	signify(&a);
 	signify(&b);
-
+/*
 	printf("DEBUG: fadd() before addl:\n");
 	printf("a: exponent: %04x, significand: %08lx %08lx\n", a.exponent, a.a, a.b);
 	printf("b: exponent: %04x, significand: %08lx %08lx\n", b.exponent, b.a, b.b);
-
+*/
 	__asm("addl %4,%0 ; adcl %5,%1"
 		:"=r" (a.a),"=r" (a.b)
 		:"0" (a.a),"1" (a.b),"g" (b.a),"g" (b.b));
 
-	printf("DEBUG: fadd() after addl:\n");
+/*	printf("DEBUG: fadd() after addl:\n");
 	printf("a: exponent: %04x, significand: %08lx %08lx\n", a.exponent, a.a, a.b);
-
+*/
 	unsignify(&a);
 
 	printf("DEBUG: fadd() result:\n");
 	printf("result: exponent: %04x, significand: %08lx %08lx\n",
 		a.exponent, a.a, a.b);
 
-	dump_fpustack();
+/*	dump_fpustack(); */
 
 	*result = a;
 }

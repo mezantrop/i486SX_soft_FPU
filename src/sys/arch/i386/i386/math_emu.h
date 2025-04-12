@@ -66,7 +66,7 @@ struct i387_struct {
 	long	fcs;
 	long	foo;
 	long	fos;
-	long	st_space[20];	/* 8*10 bytes for each FP-reg = 80 bytes */
+	temp_real_unaligned st_space[8];
 };
 
 #define I387 (*(struct i387_struct *)&(curpcb->pcb_savefpu))
