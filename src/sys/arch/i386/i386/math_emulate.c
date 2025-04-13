@@ -1107,20 +1107,9 @@ void put_BCD(const temp_real * tmp,struct trapframe * info, u_short code)
  * temporary real multiplication routine.
  */
 
-/*
-static void shift(int * c)
+ static void shift(u_long *c)
 {
-	__asm("movl (%0),%%eax ; addl %%eax,(%0)\n\t"
-		"movl 4(%0),%%eax ; adcl %%eax,4(%0)\n\t"
-		"movl 8(%0),%%eax ; adcl %%eax,8(%0)\n\t"
-		"movl 12(%0),%%eax ; adcl %%eax,12(%0)"
-		::"r" ((long) c):"ax");
-}
-*/
-
-static void shift(u_long *c)
-{
-	__asm(
+	__asm__ volatile(
 		"movl (%0), %%eax\n\t"
 		"addl %%eax, (%0)\n\t"
 		"movl 4(%0), %%eax\n\t"
@@ -1135,59 +1124,31 @@ static void shift(u_long *c)
 	);
 }
 
-/*
-static void mul64(const temp_real * a, const temp_real * b, int * c)
-{
-	__asm("movl (%0),%%eax\n\t"
-		"mull (%1)\n\t"
-		"movl %%eax,(%2)\n\t"
-		"movl %%edx,4(%2)\n\t"
-		"movl 4(%0),%%eax\n\t"
-		"mull 4(%1)\n\t"
-		"movl %%eax,8(%2)\n\t"
-		"movl %%edx,12(%2)\n\t"
-		"movl (%0),%%eax\n\t"
-		"mull 4(%1)\n\t"
-		"addl %%eax,4(%2)\n\t"
-		"adcl %%edx,8(%2)\n\t"
-		"adcl $0,12(%2)\n\t"
-		"movl 4(%0),%%eax\n\t"
-		"mull (%1)\n\t"
-		"addl %%eax,4(%2)\n\t"
-		"adcl %%edx,8(%2)\n\t"
-		"adcl $0,12(%2)"
-		::"S" ((long) a),"c" ((long) b),"D" ((long) c)
-		:"ax","dx");
-}
-*/
-
 static void mul64(const temp_real *a, const temp_real *b, u_long *c)
 {
-	printf("DEBUG: mul64() src1: exponent: %04x, significand: %08lx %08lx\n",
-		a->exponent, a->a, a->b);
-	printf("DEBUG: mul64() src2: exponent: %04x, significand: %08lx %08lx\n",
-		b->exponent, b->a, b->b);
-
-	__asm("movl (%0),%%eax\n\t"
-		"mull (%1)\n\t"
-		"movl %%eax,(%2)\n\t"
-		"movl %%edx,4(%2)\n\t"
-		"movl 4(%0),%%eax\n\t"
-		"mull 4(%1)\n\t"
-		"movl %%eax,8(%2)\n\t"
-		"movl %%edx,12(%2)\n\t"
-		"movl (%0),%%eax\n\t"
-		"mull 4(%1)\n\t"
-		"addl %%eax,4(%2)\n\t"
-		"adcl %%edx,8(%2)\n\t"
-		"adcl $0,12(%2)\n\t"
-		"movl 4(%0),%%eax\n\t"
-		"mull (%1)\n\t"
-		"addl %%eax,4(%2)\n\t"
-		"adcl %%edx,8(%2)\n\t"
-		"adcl $0,12(%2)"
-		::"S" ((long)a), "c" ((long)b), "D" ((long)c)
-		: "ax", "dx");
+	__asm__ volatile (
+		"movl	(%0), %%eax\n\t"
+		"mull	(%1)\n\t"
+		"movl	%%eax, (%2)\n\t"
+		"movl	%%edx, 4(%2)\n\t"
+		"movl	4(%0), %%eax\n\t"
+		"mull	4(%1)\n\t"
+		"movl	%%eax, 8(%2)\n\t"
+		"movl	%%edx, 12(%2)\n\t"
+		"movl	(%0), %%eax\n\t"
+		"mull	4(%1)\n\t"
+		"addl	%%eax, 4(%2)\n\t"
+		"adcl	%%edx, 8(%2)\n\t"
+		"adcl	$0, 12(%2)\n\t"
+		"movl	4(%0), %%eax\n\t"
+		"mull	(%1)\n\t"
+		"addl	%%eax, 4(%2)\n\t"
+		"adcl	%%edx, 8(%2)\n\t"
+		"adcl	$0, 12(%2)\n\t"
+        :
+        : "r"(a), "r"(b), "r"(c)
+        : "eax", "edx", "cc", "memory"
+    );
 }
 
 void fmul(const temp_real * src1, const temp_real * src2, temp_real * result)
@@ -1195,15 +1156,13 @@ void fmul(const temp_real * src1, const temp_real * src2, temp_real * result)
 	int i,sign;
 	u_long tmp[4] = {0,0,0,0};
 
-	temp_real s1 = *src1, s2 = *src2;
-
 /*	printf("DEBUG: fmul() src1: exponent: %04x, significand: %08lx %08lx\n",
 		src1->exponent, src1->a, src1->b);
 	printf("DEBUG: fmul() src2: exponent: %04x, significand: %08lx %08lx\n",
 		src2->exponent, src2->a, src2->b);*/
 
-	sign = (s1.exponent ^ s2.exponent) & 0x8000;
-	i = (s1.exponent & 0x7fff) + (s2.exponent & 0x7fff) - 16383 + 1;
+	sign = (src1->exponent ^ src2->exponent) & 0x8000;
+	i = (src1->exponent & 0x7fff) + (src2->exponent & 0x7fff) - 16383 + 1;
 	if (i<0) {
 		result->exponent = sign;
 		result->a = result->b = 0;
@@ -1213,9 +1172,9 @@ void fmul(const temp_real * src1, const temp_real * src2, temp_real * result)
 		set_OE();
 		return;
 	}
-	mul64(&s1,&s2,tmp);
+	mul64(src1,src2,tmp);
 	if (tmp[0] || tmp[1] || tmp[2] || tmp[3])
-		while (i && tmp[3] >= 0) {
+		while (i && !(tmp[3] & 0x80000000)) {
 			i--;
 			shift(tmp);
 		}
@@ -1225,8 +1184,8 @@ void fmul(const temp_real * src1, const temp_real * src2, temp_real * result)
 	result->a = tmp[2];
 	result->b = tmp[3];
 
-/*	printf("DEBUG: fmul() result: exponent: %04x, significand: %08lx %08lx\n",
-		result->exponent, result->a, result->b); */
+	printf("DEBUG: fmul() result: exponent: %04x, significand: %08lx %08lx\n",
+		result->exponent, result->a, result->b);
 }
 
 /*
@@ -1300,10 +1259,10 @@ void fdiv(const temp_real * src1, const temp_real * src2, temp_real * result)
 	int i,sign;
 	u_long a[4],b[4],tmp[4] = {0,0,0,0};
 
-	printf("DEBUG: fdiv() src1: exponent: %04x, significand: %08lx %08lx\n",
+/*	printf("DEBUG: fdiv() src1: exponent: %04x, significand: %08lx %08lx\n",
 		src1->exponent, src1->a, src1->b);
 	printf("DEBUG: fdiv() src2: exponent: %04x, significand: %08lx %08lx\n",
-		src2->exponent, src2->a, src2->b);
+		src2->exponent, src2->a, src2->b); */
 
 	sign = (src1->exponent ^ src2->exponent) & 0x8000;
 	if (!(src2->a || src2->b)) {
