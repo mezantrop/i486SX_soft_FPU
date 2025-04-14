@@ -21,11 +21,11 @@ to the current stage of NetBSD code.
 | `fildl`     | ✅ Done        | load long integer                       | `DB /A`    | `fildl	[mem]`     |
 | `fdiv`      | ✅ Done        | Divide floating-point numbers           | `D8 /6`    | `fdiv st(1), st`  |
 | `fmul`      | ✅ Done        | Multiply floating-point numbers         | `D8 /1`    | `fmul st(1), st`  |
+| `fsub`      | ✅ Done        | Subtract floating-point numbers         | `D8 /4`    | `fsub st(1), st`  |
 | `fst`       | ⬜ Unchecked   | Store floating-point value              | `D9 /2`    | `fst st(1)`       |
 | `fstp`      | ⬜ Unchecked   | Store and pop floating-point value      | `D9 /3`    | `fstp st(1)`      |
 | `fstpt`     | ⬜ Unchecked   | Store 80-bit extended precision and pop | `DB /7`    | `fstpt [mem]`     |
 | `faddp`     | ⬜ Unchecked   | Add and pop stack                       | `DE /0`    | `faddp st(1), st` |
-| `fsub`      | ⬜ Unchecked   | Subtract floating-point numbers         | `D8 /4`    | `fsub st(1), st`  |
 | `fmulp`     | ⬜ Unchecked   | Multiply and pop stack                  | `DE /1`    | `fmulp st(1), st` |
 | `fcom`      | ⬜ Unchecked   | Compare floating-point values           | `D8 /2`    | `fcom st(1)`      |
 | `fcomp`     | ⬜ Unchecked   | Compare and pop stack                   | `D8 /3`    | `fcomp st(1)`     |
