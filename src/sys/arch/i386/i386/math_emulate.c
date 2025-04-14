@@ -1580,8 +1580,8 @@ void short_to_temp(const short_real * a, temp_real * b)
 		b->exponent |= 0x8000;
 	b->b = (*a<<8) | 0x80000000;
 	b->a = 0;
-	printf("Debug: short_to_temp(): Mantissa split. b->a: %lx, b->b: %lx\n",
-		b->a, b->b);
+/*	printf("Debug: short_to_temp(): Mantissa split. b->a: %lx, b->b: %lx\n",
+		b->a, b->b); */
 }
 
 void long_to_temp(const long_real * a, temp_real * b)

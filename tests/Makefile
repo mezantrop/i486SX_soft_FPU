@@ -3,14 +3,16 @@ CC = gcc
 CFLAGS =
 ASFLAGS =
 
-TESTS_FLOAT = fadd_float_float fdiv_float_float fmul_float_float
+TESTS_FLOAT = fadd_float_float fdiv_float_float fmul_float_float \
+	fmul_tfloat_tfloat
 
-TESTS_TFLOAT = fadd_tfloat_quad_pos fadd_tfloat_quad_neg \
-	fadd_tfloat_quad_zero fadd_tfloat_denorm fadd_tfloat_overflow \
-	fadd_tfloat_quad_nan fadd_tfloat_inf \
+TESTS_TFLOAT = fadd_tfloat_quad_pos fadd_tfloat_quad_pos_pi \
+	fadd_tfloat_quad_neg fadd_tfloat_quad_zero fadd_tfloat_denorm \
+	fadd_tfloat_overflow fadd_tfloat_quad_nan fadd_tfloat_inf \
 	fdiv_tfloat_tfloat
 
-TEST_S = fildl_fstpt $(TESTS_FLOAT) $(TESTS_TFLOAT)
+TEST_S = fildl_fstpt get_long_real $(TESTS_FLOAT) $(TESTS_TFLOAT)
+
 TEST_C = fadd_print fcalc fvars short_div_float double_minus_float \
 	float_plus_ld ld_mul_int ld_plus_neg_float neg_double_mul_long \
 	neg_ld_div_char try_sub
