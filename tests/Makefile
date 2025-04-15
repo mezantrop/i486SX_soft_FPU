@@ -7,9 +7,10 @@ TESTS_FLOAT = fadd_float_float fdiv_float_float fmul_float_float
 
 
 TESTS_TFLOAT = fadd_tfloat_quad_pos fadd_tfloat_quad_pos_pi \
-	fadd_tfloat_quad_neg fadd_tfloat_quad_zero fadd_tfloat_denorm \
-	fadd_tfloat_overflow fadd_tfloat_quad_nan fadd_tfloat_inf \
-	fmul_tfloat_tfloat fdiv_tfloat_tfloat fsub_tfloat_quad
+	fadd_tfloat_quad_pos_1	fadd_tfloat_quad_neg fadd_tfloat_quad_zero \
+	fadd_tfloat_denorm fadd_tfloat_overflow fadd_tfloat_quad_nan \
+	fadd_tfloat_inf fmul_tfloat_tfloat fdiv_tfloat_tfloat \
+	fsub_tfloat_quad fcom_tfloat_quad_neg fcom_tfloat_quad_pos
 
 TEST_S = fildl_fstpt get_long_real $(TESTS_FLOAT) $(TESTS_TFLOAT)
 

@@ -131,6 +131,7 @@ void long_to_temp(const long_real * __a, temp_real * __b);
 void temp_to_short(const temp_real * __a, short_real * __b);
 void temp_to_long(const temp_real * __a, long_real * __b);
 void real_to_int(const temp_real * __a, temp_int * __b);
+void real_to_int_floor(const temp_real * __r, temp_int * __i);
 void int_to_real(const temp_int * __a, temp_real * __b);
 
 /* get_put.c */
