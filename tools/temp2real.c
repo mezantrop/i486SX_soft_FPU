@@ -25,7 +25,7 @@ void print_long_double(uint16_t exponent, uint64_t fraction) {
 
 int main(int argc, char *argv[]) {
 	if (argc != 3) {
-		fprintf(stderr, "Usage: %s <exponent (in hex)> <fraction (in hex)>\n", argv[0]);
+		fprintf(stderr, "Usage: %s <exponent (hex)> <fraction (hex)>\n", argv[0]);
 		return 1;
 	}
 
