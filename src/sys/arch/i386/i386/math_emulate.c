@@ -911,12 +911,9 @@ void get_long_int(temp_real * tmp,
 
 	printf("DEBUG: get_long_int(): fuword() -> ti.a: %lx\n", ti.a);
 
+	if ((ti.sign = (ti.a < 0)) != 0)
+		ti.a = - ti.a;
 
-	ti.sign = (ti.a & 0x80000000) != 0;
-	ti.a &= 0x7FFFFFFF;
-
-/*	ti.sign = (ti.a >> 31);
-	ti.a = (ti.sign) ? (~ti.a + 1) : ti.a; */
 
 	printf("DEBUG: get_long_int(): final -> ti.sign: %x ti.a: %lx ti.b: %lx\n",
 		ti.sign, ti.a, ti.b);
