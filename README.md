@@ -12,19 +12,19 @@ to the current stage of NetBSD code.
 
 | Instruction | Status   | Description                                     | Opcode     | Example              |
 | ----------- | -------- | ----------------------------------------------- | ---------- | -------------------- |
-| `fninit`    | ✅ Done | Initialize FPU                                  | `9B DB E3` | `fninit`             |
-| `fld`       | ✅ Done | Load floating-point value                       | `D9 /0`    | `fld st(1)`          |
-| `fstps`     | ✅ Done | Store and pop single precision                  | `D9 /3`    | `fstps [mem]`        |
-| `fstpt`     | ✅ Done | Store 80-bit extended precision and pop         | `DB /7`    | `fstpt [mem]`        |
-| `fldt`      | ✅ Done | Load 80-bit extended precision                  | `DB /5`    | `fldt [mem]`         |
-| `fadd`      | ✅ Done | Add floating-point numbers                      | `D8 /0`    | `fadd st(1), st`     |
-| `faddl`     | ✅ Done | Add long double precision                       | `DA /0`    | `faddl [mem]`        |
-| `fildl`     | ✅ Done | load long integer                               | `DB /A`    | `fildl [mem]`        |
-| `fdiv`      | ✅ Done | Divide floating-point numbers                   | `D8 /6`    | `fdiv st(1), st`     |
-| `fmul`      | ✅ Done | Multiply floating-point numbers                 | `D8 /1`    | `fmul st(1), st`     |
-| `fsub`      | ✅ Done | Subtract floating-point numbers                 | `D8 /4`    | `fsub st(1), st`     |
-| `fcom`      | ✅ Done | Compare floating-point values                   | `D8 /2`    | `fcom st(1)`         |
-| `ftst`      | ✅ Done | Compare ST(0) with 0.0                          | `D9 E4`    | `ftst`               |
+| `fninit`    | ✅ OK   | Initialize FPU                                  | `9B DB E3` | `fninit`             |
+| `fld`       | ✅ OK   | Load floating-point value                       | `D9 /0`    | `fld st(1)`          |
+| `fstps`     | ✅ OK   | Store and pop single precision                  | `D9 /3`    | `fstps [mem]`        |
+| `fstpt`     | ✅ OK   | Store 80-bit extended precision and pop         | `DB /7`    | `fstpt [mem]`        |
+| `fldt`      | ✅ OK   | Load 80-bit extended precision                  | `DB /5`    | `fldt [mem]`         |
+| `fadd`      | ✅ OK   | Add floating-point numbers                      | `D8 /0`    | `fadd st(1), st`     |
+| `faddl`     | ✅ OK   | Add long double precision                       | `DA /0`    | `faddl [mem]`        |
+| `fildl`     | ✅ OK   | load long integer                               | `DB /A`    | `fildl [mem]`        |
+| `fdiv`      | ✅ OK   | Divide floating-point numbers                   | `D8 /6`    | `fdiv st(1), st`     |
+| `fmul`      | ✅ OK   | Multiply floating-point numbers                 | `D8 /1`    | `fmul st(1), st`     |
+| `fsub`      | ✅ OK   | Subtract floating-point numbers                 | `D8 /4`    | `fsub st(1), st`     |
+| `fcom`      | ✅ OK   | Compare floating-point values                   | `D8 /2`    | `fcom st(1)`         |
+| `ftst`      | ✅ OK   | Compare ST(0) with 0.0                          | `D9 E4`    | `ftst`               |
 | `fcomi`     | 🕓 Todo | Compare ST(0) with ST(i), set CPU flags (P6+)   | `DB F0+i`  | `fcomi st(1), st(0)` |
 | `fucom`     | 🕓 Todo | Unordered compare ST(0), ST(i)                  | `DD E0+i`  | `fucom st(1)`        |
 | `fucomp`    | 🕓 Todo | Unordered compare and pop                       | `DD E8+i`  | `fucomp st(1)`       |
