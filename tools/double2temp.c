@@ -34,7 +34,7 @@ void long_to_temp(const long_real *a, temp_real *b) {
 
 int main(int argc, char *argv[]) {
 	if (argc != 3) {
-		fprintf(stderr, "Usage: %s <high32> <low32>\n", argv[0]);
+		fprintf(stderr, "Usage: %s <high32 (hex)> <low32 (hex)>\n", argv[0]);
 		return 1;
 	}
 

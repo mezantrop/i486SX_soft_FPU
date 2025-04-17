@@ -930,8 +930,7 @@ void get_longlong_int(temp_real * tmp,
 	addr = ea(info,code);
 	ti.a = fuword((u_long *) addr);
 	ti.b = fuword((u_long *) addr + 1);
-/*	if ((ti.sign = (ti.b < 0)) != 0) */
-	if ((ti.sign = (ti.b & 0x80000000) != 0))
+	if ((ti.sign = (ti.b < 0)) != 0)
 		__asm("notl %0 ; notl %1\n\t"
 			"addl $1,%0 ; adcl $0,%1"
 			:"=r" (ti.a),"=r" (ti.b)
@@ -1029,8 +1028,7 @@ void put_short_int(const temp_real * tmp,
 	addr = ea(info,code);
 	real_to_int(tmp,&ti);
 	if (ti.sign)
-		ti.a |= 0x80000000;
-/*		ti.a = -ti.a; */
+		ti.a = -ti.a;
 	susword((u_short *) addr,ti.a);
 }
 
@@ -1043,8 +1041,7 @@ void put_long_int(const temp_real * tmp,
 	addr = ea(info,code);
 	real_to_int(tmp,&ti);
 	if (ti.sign)
-		ti.a |= 0x80000000;
-/*		ti.a = -ti.a; */
+		ti.a = -ti.a;
 	suword((u_long *) addr, ti.a);
 }
 
