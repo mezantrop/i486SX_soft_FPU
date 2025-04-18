@@ -657,11 +657,11 @@ static void fxchg(temp_real_unaligned * a, temp_real_unaligned * b)
 {
 	temp_real_unaligned c;
 
-	printf("DEBUG: Entering fxchg()"\n);
+	printf("DEBUG: Entering fxchg()\n");
 	c = *a;
 	*a = *b;
 	*b = c;
-	printf("DEBUG: Leaving fxchg()"\n);
+	printf("DEBUG: Leaving fxchg()\n");
 }
 
 static temp_real_unaligned * __st(int i)
@@ -1754,71 +1754,25 @@ void Fscale(const temp_real *a, const temp_real *b, temp_real *c)
 {
 	temp_int ti;
 
+	printf("DEBUG: Fscale() input: exponent=0x%04X, significand=0x%08lX %08lX\n",
+		a->exponent, a->a, a->b);
+	printf("DEBUG: Fscale() input: exponent=0x%04X, significand=0x%08lX %08lX\n",
+		b->exponent, b->a, b->b);
+
 	*c = *a;
 	if(!c->a && !c->b) {				/* 19 Sep 92*/
 		c->exponent = 0;
 		return;
 	}
-	real_to_int_floor(b, &ti);
+	real_to_int(b, &ti);
+
 	if(ti.sign)
-		c->exponent -= ti.a;
+		c->exponent = (u_short)((int)c->exponent - (int)ti.a);
 	else
-		c->exponent += ti.a;
-}
+		c->exponent = (u_short)((int)c->exponent + (int)ti.a);
 
-void real_to_int_floor(const temp_real *r, temp_int *i)
-{
-
-	printf("DEBUG: real_to_int_floor() input: exponent=0x%04X, significand=0x%08lX %08lX\n",
-		r->exponent, r->a, r->b);
-
-	int exponent = (r->exponent & 0x7FFF) - 16383;
-	int sign = r->exponent & 0x8000;
-
-	if (exponent < 0) {
-		i->a = sign ? 1 : 0;
-		i->sign = sign ? 1 : 0;
-		return;
-	}
-
-	u_long hi = r->b;
-	u_long lo = r->a;
-
-	if (exponent < 63) {
-		if (exponent >= 32) {
-			int sh = 63 - exponent;
-			u_long mask = (1UL << sh) - 1;
-			int sticky = (lo & mask) != 0;
-
-			lo = (hi << (32 - sh)) | (lo >> sh);
-			hi = (hi >> sh) | (1UL << (31 - sh));
-
-			if (sign && sticky) {
-				if (++lo == 0)
-					hi++;
-			}
-		} else {
-			int sh = 63 - exponent;
-			u_long mask = (1UL << sh) - 1;
-			int sticky = (lo & mask) != 0;
-
-			lo = lo >> sh;
-			hi = (1UL << (31 - exponent)) | 0;
-
-			if (sign && sticky) {
-				if (++lo == 0)
-					hi++;
-			}
-		}
-	} else {
-		hi |= 0x80000000;
-	}
-
-	i->a = hi;
-	i->sign = sign ? 1 : 0;
-
-	printf("DEBUG: real_to_int_floor() result: sign=0x%04X, significand=0x%08lX %08lX\n",
-		i->sign, i->a, i->b);
+	printf("DEBUG: Fscale() result: exponent=0x%04X, significand=0x%08lX %08lX\n",
+		c->exponent, c->a, c->b);
 }
 
 void real_to_int(const temp_real * a, temp_int * b)
