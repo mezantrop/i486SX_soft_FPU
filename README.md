@@ -19,25 +19,20 @@ to the current stage of NetBSD code.
 | `fldt`      | ✅ OK   | Load 80-bit extended precision                  | `DB /5`    | `fldt [mem]`         |
 | `fadd`      | ✅ OK   | Add floating-point numbers                      | `D8 /0`    | `fadd st(1), st`     |
 | `faddl`     | ✅ OK   | Add long double precision                       | `DA /0`    | `faddl [mem]`        |
+| `filds`     | ✅ OK   | Load integer (short)                            | `DB /0`    | `filds [mem]`        |
 | `fildl`     | ✅ OK   | load long integer                               | `DB /A`    | `fildl [mem]`        |
 | `fdiv`      | ✅ OK   | Divide floating-point numbers                   | `D8 /6`    | `fdiv st(1), st`     |
 | `fmul`      | ✅ OK   | Multiply floating-point numbers                 | `D8 /1`    | `fmul st(1), st`     |
 | `fsub`      | ✅ OK   | Subtract floating-point numbers                 | `D8 /4`    | `fsub st(1), st`     |
+| `fsubp`     | ✅ OK   | Subtract with pop                               | `DE /5`    | `fsubp st(1), st(0)` |
 | `fcom`      | ✅ OK   | Compare floating-point values                   | `D8 /2`    | `fcom st(1)`         |
 | `ftst`      | ✅ OK   | Compare ST(0) with 0.0                          | `D9 E4`    | `ftst`               |
-| `fcomi`     | 🕓 Todo | Compare ST(0) with ST(i), set CPU flags (P6+)   | `DB F0+i`  | `fcomi st(1), st(0)` |
-| `fucom`     | 🕓 Todo | Unordered compare ST(0), ST(i)                  | `DD E0+i`  | `fucom st(1)`        |
-| `fucomp`    | 🕓 Todo | Unordered compare and pop                       | `DD E8+i`  | `fucomp st(1)`       |
-| `fucompp`   | 🕓 Todo | Unordered compare ST(0) with ST(1), pop 2       | `DA E9`    | `fucompp`            |
-| `fistpl`    | 🕓 Todo | Store integer and pop from FPU stack            | `DB /2`    | `fistpl [mem]`       |
-| `fistp`     | 🕓 Todo | Store integer and pop (generic)                 | *varies*   | `fistp [mem]`        |
-| `filds`     | 🕓 Todo | Load integer (short)                            | `DB /0`    | `filds [mem]`        |
-| `fistps`    | 🕓 Todo | Store short integer and pop                     | `DB /1`    | `fistps [mem]`       |
-| `fsubp`     | 🕓 Todo | Subtract with pop                               | `DE /5`    | `fsubp st(1), st(0)` |
-| `fdivp`     | 🕓 Todo | Divide with pop                                 | `DE /7`    | `fdivp st(1), st(0)` |
-| `fxch`      | 🕓 Todo | Exchange ST(0) with ST(i)                       | `D9 C8+i`  | `fxch st(1)`         |
-| `fchs`      | 🕓 Todo | Change sign of ST(0)                            | `D9 E0`    | `fchs`               |
-| `fabs`      | 🕓 Todo | Absolute value of ST(0)                         | `D9 E1`    | `fabs`               |
+| `fdivp`     | ✅ OK   | Divide with pop                                 | `DE /7`    | `fdivp st(1), st(0)` |
+| `fucom`     | ✅ OK   | Unordered compare ST(0), ST(i)                  | `DD E0+i`  | `fucom st(1)`        |
+| `fucomp`    | ✅ OK   | Unordered compare and pop                       | `DD E8+i`  | `fucomp st(1)`       |
+| `fxch`      | ✅ OK   | Exchange ST(0) with ST(i)                       | `D9 C8+i`  | `fxch st(1)`         |
+| `fchs`      | ✅ OK   | Change sign of ST(0)                            | `D9 E0`    | `fchs`               |
+| `fabs`      | ✅ OK   | Absolute value of ST(0)                         | `D9 E1`    | `fabs`               |
 | `frndint`   | 🕓 Todo | Round ST(0) to integer, respecting control word | `D9 FC`    | `frndint`            |
 | `fscale`    | 🕓 Todo | Scale ST(0) by ST(1)                            | `D9 FD`    | `fscale`             |
 | `fsqrt`     | 🕓 Todo | Square root of ST(0)                            | `D9 FA`    | `fsqrt`              |
