@@ -560,8 +560,11 @@ done:
 		printf("DEBUG: Returned from get_long_real()\n");
 
 		break;
+	case 3:
 	case 4:
+		printf("DEBUG: Calling get_short_int()\n");
 		get_short_int(&tmp,info,code);
+		printf("DEBUG: Returned from get_short_int()\n");
 	}
 
 	printf("DEBUG: (CODE >> 3) & 0x27): 0x%04x\n", (code>>3) & 0x27);
@@ -654,9 +657,11 @@ static void fxchg(temp_real_unaligned * a, temp_real_unaligned * b)
 {
 	temp_real_unaligned c;
 
+	printf("DEBUG: Entering fxchg()"\n);
 	c = *a;
 	*a = *b;
 	*b = c;
+	printf("DEBUG: Leaving fxchg()"\n);
 }
 
 static temp_real_unaligned * __st(int i)

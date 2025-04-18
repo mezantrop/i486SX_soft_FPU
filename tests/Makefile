@@ -3,7 +3,7 @@ CC = gcc
 CFLAGS =
 ASFLAGS =
 
-TESTS_FLOAT = fadd_float_float fdiv_float_float fmul_float_float
+TESTS_FLOAT = fadd_float_float fdiv_float_float fmul_float_float fild_fstpt
 
 
 TESTS_TFLOAT = fadd_tfloat_quad_pos fadd_tfloat_quad_pos_pi \

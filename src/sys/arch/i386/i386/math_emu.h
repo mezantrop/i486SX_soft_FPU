@@ -28,8 +28,10 @@ typedef struct {
 	u_short exponent;
 } temp_real_unaligned;
 
-#define real_to_real(a,b) \
-((*(long long *)(void *) (b) = *(long long *)(void *) (a)),((b)->exponent = (a)->exponent))
+/* #define real_to_real(a,b) \
+((*(long long *)(void *) (b) = *(long long *)(void *) (a)),((b)->exponent = (a)->exponent)) */
+/* XXX: TEST ME!!! */
+#define real_to_real(a, b) memcpy((b), (a), sizeof(temp_real))
 
 typedef struct {
 	long a,b;
