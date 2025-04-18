@@ -33,7 +33,7 @@ to the current stage of NetBSD code.
 | `fxch`      | ✅ OK   | Exchange ST(0) with ST(i)                       | `D9 C8+i`  | `fxch st(1)`         |
 | `fchs`      | ✅ OK   | Change sign of ST(0)                            | `D9 E0`    | `fchs`               |
 | `fabs`      | ✅ OK   | Absolute value of ST(0)                         | `D9 E1`    | `fabs`               |
-| `frndint`   | 🕓 Todo | Round ST(0) to integer, respecting control word | `D9 FC`    | `frndint`            |
+| `frndint`   | ✅ OK   | Round ST(0) to integer, respecting control word | `D9 FC`    | `frndint`            |
 | `fscale`    | 🕓 Todo | Scale ST(0) by ST(1)                            | `D9 FD`    | `fscale`             |
 | `fsqrt`     | 🕓 Todo | Square root of ST(0)                            | `D9 FA`    | `fsqrt`              |
 | ...         | ...      | ...                                             | ...        | ...                  |
