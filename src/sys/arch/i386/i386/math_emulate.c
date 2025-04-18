@@ -111,8 +111,10 @@ math_emulate(struct trapframe *info, ksiginfo_t *ksi) {
 		instruction_counter++);
 
 	u_char *instr = (u_char *)info->tf_eip;
-	printf("math_emulate: DEBUG: opcode=0x%02x 0x%02x at EIP=0x%08x\n",
-		instr[0], instr[1], info->tf_eip);
+	printf("math_emulate: DEBUG: EIP=0x%08x ESP=0x%08lx OPCODE=%02x %02x %02x %02x %02x %02x %02x %02x\n",
+		info->tf_eip, info->tf_esp,
+		instr[0], instr[1], instr[2], instr[3],
+		instr[4], instr[5], instr[6], instr[7]);
 
 
 	override_seg = override_addrsize = override_datasize = 0;
@@ -703,15 +705,15 @@ int fuword(const void *addr) {
 }
 
 int subyte(void *addr, int value) {
-	return ustore_8(addr, (uint8_t)value);
+	return ustore_8((uint8_t *)addr, (uint8_t)value);
 }
 
 int susword(void *addr, int value) {
-	return ustore_16(addr, (uint16_t)value);
+	return ustore_16((uint16_t *)addr, (uint16_t)value);
 }
 
 int suword(void *addr, int value) {
-	return ustore_32(addr, (uint32_t)value);
+	return ustore_32((uint32_t *)addr, (uint32_t)value);
 }
 
 /*
@@ -892,9 +894,6 @@ void get_short_int(temp_real * tmp,
 	if ((ti.sign = (ti.a < 0)) != 0)
 		ti.a = - ti.a;
 
-/*	ti.sign = (ti.a >> 31);
-	ti.a = (ti.sign) ? (~ti.a + 1) : ti.a;
-*/
 	printf("DEBUG: get_long_int(): final -> ti.sign: %x ti.a: %lx ti.b: %lx\n",
 		ti.sign, ti.a, ti.b);
 
@@ -1017,11 +1016,24 @@ void put_temp_real(const temp_real * tmp,
 	struct trapframe * info, u_short code)
 {
 	char * addr;
+	temp_real tdbg;
 
 	addr = ea(info,code);
+
+	printf("DEBUG: put_temp_real(): input: exponent: %04x, significand: %08lx %08lx\n",
+		tmp->exponent, tmp->a, tmp->b);
+	printf("DEBUG: put_temp_real(): ea() -> addr: %p\n", addr);
+
 	suword((u_long *) addr, tmp->a);
 	suword((u_long *) addr + 1, tmp->b);
 	susword((u_short *) addr + 4, tmp->exponent);
+
+	tdbg.a = fuword((u_long *) addr);
+	tdbg.b = fuword((u_long *) addr + 1);
+	tdbg.exponent = fusword((u_short *) addr + 4);
+
+	printf("DEBUG: put_temp_real(): check: exponent: %04x, significand: %08lx %08lx\n",
+		tdbg.exponent, tdbg.a, tdbg.b);
 }
 
 void put_short_int(const temp_real * tmp,
@@ -1832,7 +1844,7 @@ void real_to_int(const temp_real * a, temp_int * b)
 					:"0" (b->a),"1" (b->b));
 			break;
 	}
-	printf("DEBUG: real_to_int_floor() result: sign=0x%04X, significand=0x%08lX %08lX\n",
+	printf("DEBUG: real_to_int() result: sign=0x%04X, significand=0x%08lX %08lX\n",
 		b->sign, b->a, b->b);
 }
 

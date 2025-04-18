@@ -35,7 +35,7 @@ to the current stage of NetBSD code.
 | `fabs`      | ✅ OK   | Absolute value of ST(0)                         | `D9 E1`    | `fabs`               |
 | `frndint`   | ✅ OK   | Round ST(0) to integer, respecting control word | `D9 FC`    | `frndint`            |
 | `fscale`    | ✅ OK   | Scale ST(0) by ST(1)                            | `D9 FD`    | `fscale`             |
-| `fsqrt`     | 🕓 Todo | Square root of ST(0)                            | `D9 FA`    | `fsqrt`              |
+| `fsqrt`     | ❌ N/A  | Square root of ST(0)                            | `D9 FA`    | `fsqrt`              |
 | ...         | ...      | ...                                             | ...        | ...                  |
 
 ## Installation
