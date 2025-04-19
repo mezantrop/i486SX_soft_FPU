@@ -1,6 +1,6 @@
 .section .data
-base:   .tfloat 2.5				# Value to scale
-exp:    .tfloat 3.0				# scale
+base:	.tfloat 2.5				# Value to scale
+exp:	.tfloat 3.0				# scale
 
 .section .text
 .global main

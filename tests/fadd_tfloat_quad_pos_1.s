@@ -1,6 +1,6 @@
 .section .data
 num1:	.tfloat 3.55
-num2:   .quad 0x4002000000000000    # 2.25
+num2:	.quad 0x4002000000000000    # 2.25
 
 .section .text
 .global main

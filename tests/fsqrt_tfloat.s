@@ -1,5 +1,5 @@
 .section .data
-val:    .tfloat 2.25			# sqrt(2.25) = 1.5
+val:	.tfloat 2.25			# sqrt(2.25) = 1.5
 
 .section .text
 .global main

@@ -111,7 +111,7 @@ math_emulate(struct trapframe *info, ksiginfo_t *ksi) {
 		instruction_counter++);
 
 	u_char *instr = (u_char *)info->tf_eip;
-	printf("math_emulate: DEBUG: EIP=0x%08x ESP=0x%08lx OPCODE=%02x %02x %02x %02x %02x %02x %02x %02x\n",
+	printf("math_emulate: DEBUG: EIP=0x%08x ESP=0x%04x OPCODE=%02x %02x %02x %02x %02x %02x %02x %02x\n",
 		info->tf_eip, info->tf_esp,
 		instr[0], instr[1], instr[2], instr[3],
 		instr[4], instr[5], instr[6], instr[7]);
@@ -1117,21 +1117,27 @@ void put_BCD(const temp_real * tmp,struct trapframe * info, u_short code)
  */
 
  static void shift(u_long *c)
-{
-	__asm__ volatile(
-		"movl (%0), %%eax\n\t"
-		"addl %%eax, (%0)\n\t"
-		"movl 4(%0), %%eax\n\t"
-		"adcl %%eax, 4(%0)\n\t"
-		"movl 8(%0), %%eax\n\t"
-		"adcl %%eax, 8(%0)\n\t"
-		"movl 12(%0), %%eax\n\t"
-		"adcl %%eax, 12(%0)\n\t"
-		:
-		: "r"(c)
-		: "eax", "cc"
-	);
-}
+ {
+	 __asm__ volatile (
+		 "movl  0(%0), %%eax\n\t"
+		 "movl  4(%0), %%ebx\n\t"
+		 "movl  8(%0), %%ecx\n\t"
+		 "movl 12(%0), %%edx\n\t"
+
+		 "shldl $1, %%ebx, %%eax\n\t"
+		 "shldl $1, %%ecx, %%ebx\n\t"
+		 "shldl $1, %%edx, %%ecx\n\t"
+		 "shll  $1, %%edx\n\t"
+
+		 "movl %%eax, 0(%0)\n\t"
+		 "movl %%ebx, 4(%0)\n\t"
+		 "movl %%ecx, 8(%0)\n\t"
+		 "movl %%edx, 12(%0)\n\t"
+		 :
+		 : "r"(c)
+		 : "eax", "ebx", "ecx", "edx", "cc", "memory"
+	 );
+ }
 
 static void mul64(const temp_real *a, const temp_real *b, u_long *c)
 {
@@ -1157,7 +1163,7 @@ static void mul64(const temp_real *a, const temp_real *b, u_long *c)
         :
         : "r"(a), "r"(b), "r"(c)
         : "eax", "edx", "cc", "memory"
-    );
+	);
 }
 
 void fmul(const temp_real * src1, const temp_real * src2, temp_real * result)
@@ -1189,7 +1195,8 @@ void fmul(const temp_real * src1, const temp_real * src2, temp_real * result)
 		}
 	else
 		i = 0;
-	result->exponent = i | sign;
+	/* result->exponent = i | sign; */
+	result->exponent = (i & 0x7FFF) | sign;
 	result->a = tmp[2];
 	result->b = tmp[3];
 
@@ -1863,8 +1870,8 @@ void int_to_real(const temp_int * a, temp_real * b)
 		return;
 	}
 
-	printf("DEBUG: int_to_real() before normalization: exponent=%04x, significand=%08lx %08lx\n",
-		b->exponent, b->a, b->b);
+/*	printf("DEBUG: int_to_real() before normalization: exponent=%04x, significand=%08lx %08lx\n",
+		b->exponent, b->a, b->b); */
 
 	while (!(b->b & 0x80000000)) {
 		printf("DEBUG: int_to_real() before shift: exponent=%04x, significand=%08lx %08lx\n",
@@ -1875,8 +1882,8 @@ void int_to_real(const temp_int * a, temp_real * b)
 			:"=r" (b->a),"=r" (b->b)
 			:"0" (b->a),"1" (b->b));
 
-		printf("DEBUG: int_to_real() after shift: exponent=%04x, significand=%08lx %08lx\n",
-			b->exponent, b->a, b->b);
+/*		printf("DEBUG: int_to_real() after shift: exponent=%04x, significand=%08lx %08lx\n",
+			b->exponent, b->a, b->b); */
 	}
 
 	printf("DEBUG: int_to_real(): result: exponent: %04x, significand: %08lx %08lx\n",

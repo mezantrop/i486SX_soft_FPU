@@ -22,7 +22,7 @@ to the current stage of NetBSD code.
 | `filds`     | ✅ OK   | Load integer (short)                            | `DB /0`    | `filds [mem]`        |
 | `fildl`     | ✅ OK   | load long integer                               | `DB /A`    | `fildl [mem]`        |
 | `fdiv`      | ✅ OK   | Divide floating-point numbers                   | `D8 /6`    | `fdiv st(1), st`     |
-| `fmul`      | ✅ OK   | Multiply floating-point numbers                 | `D8 /1`    | `fmul st(1), st`     |
+| `fmul`      | ⚠️ Part | Multiply works, but sign may be incorrect       | `D8 /1`    | `fmul st(1), st`     |
 | `fsub`      | ✅ OK   | Subtract floating-point numbers                 | `D8 /4`    | `fsub st(1), st`     |
 | `fsubp`     | ✅ OK   | Subtract with pop                               | `DE /5`    | `fsubp st(1), st(0)` |
 | `fcom`      | ✅ OK   | Compare floating-point values                   | `D8 /2`    | `fcom st(1)`         |
@@ -37,6 +37,8 @@ to the current stage of NetBSD code.
 | `fscale`    | ✅ OK   | Scale ST(0) by ST(1)                            | `D9 FD`    | `fscale`             |
 | `fsqrt`     | ❌ N/A  | Square root of ST(0)                            | `D9 FA`    | `fsqrt`              |
 | ...         | ...      | ...                                             | ...        | ...                  |
+
+* Sign issues
 
 ## Installation
 

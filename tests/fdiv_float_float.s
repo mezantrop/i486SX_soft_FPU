@@ -1,8 +1,8 @@
 # Perform division of two single-precision (32-bit) floating point numbers
 
 .section .data
-num1:	.float 3.5          # First float number (numerator)
-num2:	.float 2.5          # Second float number (denominator)
+num1:	.float 3.5			# First float number (numerator)
+num2:	.float 2.5			# Second float number (denominator)
 
 .section .text
 .global main

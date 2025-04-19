@@ -11,7 +11,8 @@ TESTS_TFLOAT = fadd_tfloat_quad_pos fadd_tfloat_quad_pos_pi \
 	fadd_tfloat_denorm fadd_tfloat_overflow fadd_tfloat_quad_nan \
 	fadd_tfloat_inf fmul_tfloat_tfloat fdiv_tfloat_tfloat \
 	fsub_tfloat_quad fcom_tfloat_quad_neg fcom_tfloat_quad_pos \
-	frndint_tfloat_neg fscale_tfloat_tfloat fsqrt_tfloat
+	frndint_tfloat_neg fscale_tfloat_tfloat fsqrt_tfloat \
+	fmul_bytes fmul_tfloat_tfloat_neg
 
 TEST_S = fildl_fstpt get_long_real $(TESTS_FLOAT) $(TESTS_TFLOAT)
 

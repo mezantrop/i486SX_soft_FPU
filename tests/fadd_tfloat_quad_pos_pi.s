@@ -2,7 +2,7 @@
 
 .section .data
 num1:	.tfloat 3.5
-num2:   .quad 0x400921fb54442d18    # 3.141592653589793 (π)
+num2:	.quad 0x400921fb54442d18    # 3.141592653589793 (π)
 
 .section .text
 .global main
