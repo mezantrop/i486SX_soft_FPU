@@ -38,8 +38,6 @@ to the current stage of NetBSD code.
 | `fsqrt`     | ❌ N/A  | Square root of ST(0)                            | `D9 FA`    | `fsqrt`              |
 | ...         | ...      | ...                                             | ...        | ...                  |
 
-* Sign issues
-
 ## Installation
 
 * Read [Chapter 32. Obtaining the sources](https://www.netbsd.org/docs/guide/en/chap-fetch.html)
