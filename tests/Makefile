@@ -18,7 +18,7 @@ TEST_S = fildl_fstpt get_long_real $(TESTS_FLOAT) $(TESTS_TFLOAT)
 
 TEST_C = fadd_print fcalc fvars short_div_float double_minus_float \
 	float_plus_ld ld_mul_int ld_plus_neg_float neg_double_mul_long \
-	neg_ld_div_char try_sub
+	neg_ld_div_char try_sub neg_ld_mul_ld
 
 .PHONY: all clean
 

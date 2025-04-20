@@ -1662,7 +1662,7 @@ void temp_to_long(const temp_real * a, long_real * b)
 		return;
 	}
 	b->b = (((0x7fff & (long) a->exponent)-16383+1023) << 20) & 0x7ff00000;
-	if (a->exponent < 0)
+	if (a->exponent & 0x8000)
 		b->b |= 0x80000000;
 	b->b |= (a->b >> 11) & 0x000fffff;
 	b->a = a->b << 21;
@@ -1874,8 +1874,8 @@ void int_to_real(const temp_int * a, temp_real * b)
 		b->exponent, b->a, b->b); */
 
 	while (!(b->b & 0x80000000)) {
-		printf("DEBUG: int_to_real() before shift: exponent=%04x, significand=%08lx %08lx\n",
-			b->exponent, b->a, b->b);
+/*		printf("DEBUG: int_to_real() before shift: exponent=%04x, significand=%08lx %08lx\n",
+			b->exponent, b->a, b->b); */
 
 		b->exponent--;
 		__asm("addl %0,%0 ; adcl %1,%1"

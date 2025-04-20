@@ -1,6 +1,7 @@
 #include <stdio.h>
-#include <stdlib.h>
+/* #include <stdlib.h>*/
 
+/*
 long double to_type(long double value, char t) {
 	switch (t) {
 		case 'c': return (char)value;
@@ -13,13 +14,14 @@ long double to_type(long double value, char t) {
 		default:  return 0;
 	}
 }
+*/
 
 int main(void) {
 	long double n1 = -2.000004L;
 	long double n2 = 4L;
 	long double result = 0;
 
-	result = to_type(n1, 'd') * to_type(n2, 'l');
+	result = (double)n1 * (long)n2;
 
 	printf("%Lf\n", result);
 	return 0;
