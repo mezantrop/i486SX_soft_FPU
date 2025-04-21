@@ -456,8 +456,9 @@ extern char cpu_brand_string[];
 extern int use_pae;
 
 #ifdef __i386__
-#define	i386_fpu_present	1
+/* #define	i386_fpu_present	1 */
 int npx586bug1(int, int);
+extern int i386_fpu_present;
 extern int i386_fpu_fdivbug;
 extern int i386_use_fxsave;
 extern int i386_has_sse;

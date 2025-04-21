@@ -19,17 +19,19 @@
  */
 
 typedef struct {
-	long a,b;
-	short exponent;
+	u_long a,b;
+	u_short exponent;
 } temp_real;
 
 typedef struct {
-	short m0,m1,m2,m3;
-	short exponent;
+	u_short m0,m1,m2,m3;
+	u_short exponent;
 } temp_real_unaligned;
 
-#define real_to_real(a,b) \
-((*(long long *)(void *) (b) = *(long long *)(void *) (a)),((b)->exponent = (a)->exponent))
+/* #define real_to_real(a,b) \
+((*(long long *)(void *) (b) = *(long long *)(void *) (a)),((b)->exponent = (a)->exponent)) */
+/* XXX: TEST ME!!! */
+#define real_to_real(a, b) memcpy((b), (a), sizeof(temp_real))
 
 typedef struct {
 	long a,b;
@@ -66,7 +68,7 @@ struct i387_struct {
 	long	fcs;
 	long	foo;
 	long	fos;
-	long	st_space[20];	/* 8*10 bytes for each FP-reg = 80 bytes */
+	temp_real_unaligned st_space[8];
 };
 
 #define I387 (*(struct i387_struct *)&(curpcb->pcb_savefpu))
@@ -90,6 +92,7 @@ struct i387_struct {
 #define CONSTLG2 (temp_real_unaligned) {0xF799,0xFBCF,0x9A84,0x9A20,0x3FFD}
 #define CONSTL2E (temp_real_unaligned) {0xF0BC,0x5C17,0x3B29,0xB8AA,0x3FFF}
 #define CONSTL2T (temp_real_unaligned) {0x8AFE,0xCD1B,0x784B,0xD49A,0x4000}
+#define NEG_INF  (temp_real_unaligned) {0x0000,0x0000,0x0000,0x8000,0x7FFF}
 
 #define set_IE() (I387.swd |= 1)
 #define set_DE() (I387.swd |= 2)
@@ -131,6 +134,7 @@ void long_to_temp(const long_real * __a, temp_real * __b);
 void temp_to_short(const temp_real * __a, short_real * __b);
 void temp_to_long(const temp_real * __a, long_real * __b);
 void real_to_int(const temp_real * __a, temp_int * __b);
+void real_to_int_floor(const temp_real * __r, temp_int * __i);
 void int_to_real(const temp_int * __a, temp_real * __b);
 
 /* get_put.c */
@@ -153,6 +157,7 @@ void put_BCD(const temp_real *, struct trapframe *, unsigned short);
 /* add.c */
 
 void fadd(const temp_real *, const temp_real *, temp_real *);
+void fsub(const temp_real *a, const temp_real *b, temp_real *res);
 
 /* mul.c */
 
@@ -168,4 +173,9 @@ void fcom(const temp_real *, const temp_real *);
 void fucom(const temp_real *, const temp_real *);
 void ftst(const temp_real *);
 
+/* Logartithm functions */
+void fyl2x(const temp_real *a, const temp_real *b, temp_real *c);
+void flog2(const temp_real *a, temp_real *result);
+void fexp(const temp_real *x, temp_real *result);
+void fln(const temp_real *x, temp_real *result);
 #endif
