@@ -92,6 +92,7 @@ struct i387_struct {
 #define CONSTLG2 (temp_real_unaligned) {0xF799,0xFBCF,0x9A84,0x9A20,0x3FFD}
 #define CONSTL2E (temp_real_unaligned) {0xF0BC,0x5C17,0x3B29,0xB8AA,0x3FFF}
 #define CONSTL2T (temp_real_unaligned) {0x8AFE,0xCD1B,0x784B,0xD49A,0x4000}
+#define NEG_INF  (temp_real_unaligned) {0x0000,0x0000,0x0000,0x8000,0x7FFF}
 
 #define set_IE() (I387.swd |= 1)
 #define set_DE() (I387.swd |= 2)
@@ -156,6 +157,7 @@ void put_BCD(const temp_real *, struct trapframe *, unsigned short);
 /* add.c */
 
 void fadd(const temp_real *, const temp_real *, temp_real *);
+void fsub(const temp_real *a, const temp_real *b, temp_real *res);
 
 /* mul.c */
 
@@ -171,4 +173,9 @@ void fcom(const temp_real *, const temp_real *);
 void fucom(const temp_real *, const temp_real *);
 void ftst(const temp_real *);
 
+/* Logartithm functions */
+void fyl2x(const temp_real *a, const temp_real *b, temp_real *c);
+void flog2(const temp_real *a, temp_real *result);
+void fexp(const temp_real *x, temp_real *result);
+void fln(const temp_real *x, temp_real *result);
 #endif

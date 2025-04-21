@@ -7,5 +7,5 @@
 | double_minus_float  | OK*    | some precision discrepancy? |
 | ld_mul_int          | OK     |                             |
 | ld_plus_neg_float   | OK*    | some precision discrepancy? |
-| neg_double_mul_long | KO     | Sign missing!               |
+| neg_double_mul_long | OK     |                             |
 | neg_ld_div_char     | OK     |                             |
