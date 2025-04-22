@@ -28,10 +28,8 @@ typedef struct {
 	u_short exponent;
 } temp_real_unaligned;
 
-/* #define real_to_real(a,b) \
-((*(long long *)(void *) (b) = *(long long *)(void *) (a)),((b)->exponent = (a)->exponent)) */
-/* XXX: TEST ME!!! */
-#define real_to_real(a, b) memcpy((b), (a), sizeof(temp_real))
+#define real_to_real(a,b) \
+((*(long long *)(void *) (b) = *(long long *)(void *) (a)),((b)->exponent = (a)->exponent))
 
 typedef struct {
 	long a,b;
@@ -174,8 +172,10 @@ void fucom(const temp_real *, const temp_real *);
 void ftst(const temp_real *);
 
 /* Logartithm functions */
+void f2xm1(const temp_real *x, temp_real *result);
 void fyl2x(const temp_real *a, const temp_real *b, temp_real *c);
 void flog2(const temp_real *a, temp_real *result);
 void fexp(const temp_real *x, temp_real *result);
+void f2exp(const temp_real *x, temp_real *result);
 void fln(const temp_real *x, temp_real *result);
 #endif
