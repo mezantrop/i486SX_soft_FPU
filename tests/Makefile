@@ -13,13 +13,14 @@ TESTS_TFLOAT = fadd_tfloat_quad_pos fadd_tfloat_quad_pos_pi \
 	fadd_tfloat_inf fmul_tfloat_tfloat fdiv_tfloat_tfloat \
 	fsub_tfloat_quad fcom_tfloat_quad_neg fcom_tfloat_quad_pos \
 	frndint_tfloat_neg fscale_tfloat_tfloat fsqrt_tfloat \
-	fmul_bytes fmul_tfloat_tfloat_neg
+	fmul_bytes fmul_tfloat_tfloat_neg fyl2x_tfloat_tfloat
 
 TEST_S = fildl_fstpt get_long_real $(TESTS_FLOAT) $(TESTS_TFLOAT)
 
 TEST_C = fadd_print fcalc fvars short_div_float double_minus_float \
 	float_plus_ld ld_mul_int ld_plus_neg_float neg_double_mul_long \
-	neg_ld_div_char try_sub neg_ld_mul_ld pi ld_log2l_ld ld_pow_ld
+	neg_ld_div_char try_sub neg_ld_mul_ld pi ld_log2l_ld ld_log2l \
+	ld_pow_ld
 
 .PHONY: all clean
 
