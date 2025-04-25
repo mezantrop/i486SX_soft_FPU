@@ -241,7 +241,7 @@ done:
 		return(0);
 	case 0x1f1: /* fyl2x */
 		fyl2x(PST(0),PST(1),&tmp);
-		real_to_real(&tmp,&ST(0));
+		real_to_real(&tmp,&ST(1));
 		fpop();
 		return(0);
 	case 0x1fc: /* frndint */
@@ -1492,7 +1492,7 @@ void fadd(const temp_real * src1, const temp_real * src2, temp_real * result)
 */
 	unsignify(&a);
 
-	printf("DEBUG fadd() result: exponent: %04x, significand: %08lx %08lx\n",
+	printf("DEBUG: fadd() result: exponent: %04x, significand: %08lx %08lx\n",
 		a.exponent, a.a, a.b);
 
 /*	dump_fpustack(); */
@@ -1962,25 +1962,32 @@ void flog2(const temp_real *a, temp_real *result) {
 void fexp(const temp_real *x, temp_real *result) {
 	temp_real term, sum, factor;
 	int i;
+	temp_int ti;
+	temp_real real_i;
 
 	printf("DEBUG: fexp(): input: exponent: %04x, significand: %08lx %08lx\n",
-		a->exponent, a->a, a->b);
+		   x->exponent, x->a, x->b);
 
-	factor = *x;      						/* x^1 */
+	factor = *x;
 	real_to_real(&CONST1, &sum);
 	term = factor;
 
 	for (i = 2; i < MAX_ITER; i++) {
-		fmul(&term, &factor, &term);		/* term = x^i / i! */
-		fdiv(&term, (const temp_real *)&i, &term);	/*	div i! */
+		fmul(&term, &factor, &term);
 
+		ti.a = (signed short)i;
+		ti.b = 0;
+		ti.sign = 0;
+		int_to_real(&ti, &real_i);
+
+		fdiv(&term, &real_i, &term);
 		fadd(&sum, &term, &sum);
 	}
 
 	*result = sum;
 
 	printf("DEBUG: fexp(): result: exponent: %04x, significand: %08lx %08lx\n",
-		result->exponent, result->a, result->b);
+		   result->exponent, result->a, result->b);
 }
 
 void f2exp(const temp_real *x, temp_real *result)
