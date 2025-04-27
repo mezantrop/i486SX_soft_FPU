@@ -105,7 +105,8 @@ $ make
 
 ## Prebuilt drive image
 
-It will appear eventually under [Releases](https://github.com/mezantrop/i486SX_soft_FPU/releases)
+Check [Releases](https://github.com/mezantrop/i486SX_soft_FPU/releases) for the compiled `netbsd` kernel with FPU-emulation
+as well, as the drive image
 
 ## Contacts
 
