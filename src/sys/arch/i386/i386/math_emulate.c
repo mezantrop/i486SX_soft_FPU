@@ -233,9 +233,13 @@ done:
 		fpush();
 		ST(0) = CONSTZ;
 		return(0);
+	case 0x1f0: /* f2xm1 */
+		f2xm1(PST(0), &tmp);
+		real_to_real(&tmp, &ST(0));
+		return(0);
 	case 0x1f1: /* fyl2x */
-		fyl2x(PST(0),PST(1),&tmp);
-		real_to_real(&tmp,&ST(0));
+		fyl2x(PST(0), PST(1), &tmp);
+		real_to_real(&tmp, &ST(0));
 		fpop();
 		return(0);
 	case 0x1fc: /* frndint */
@@ -273,10 +277,18 @@ done:
 	case 0x1e2: case 0x1e3:             case 0x1e5:
 	case 0x1e6: case 0x1e7:
 	case 0x1ef:
-	case 0x1f0: /* case 0x1f1: */ case 0x1f2: case 0x1f3:
-	case 0x1f4: case 0x1f5: case 0x1f6: case 0x1f7:
-	case 0x1f8: case 0x1f9: case 0x1fa: case 0x1fb:
-	case 0x1fe: case 0x1ff:
+	case 0x1f2: /* fptan */
+	case 0x1f3: /* fpatan */
+	case 0x1f4: /* fxtract */
+	case 0x1f5: /* fprem1 */
+	case 0x1f6: /* fdecstp */
+	case 0x1f7: /* fincstp */
+	case 0x1f8: /* fprem */
+	case 0x1f9: /* fyl2xp1 */
+	case 0x1fa: /* fsqrt */
+	case 0x1fb: /* fsincos */
+	case 0x1fe: /* fsin */
+	case 0x1ff: /* fcos */
 		uprintf("math_emulate: 0x%04x not implemented\n", code + 0xd800);
 		math_abort(info, ksi, SIGILL, ILL_ILLOPC);
 	}
@@ -1626,7 +1638,6 @@ void temp_to_short(const temp_real * a, short_real * b)
 /*	printf("DEBUG: temp_to_short() result: 0x%08lX\n", *b); */
 }
 
-
 void temp_to_long(const temp_real * a, long_real * b)
 {
 /*	printf("DEBUG: temp_to_long() input: exponent=0x%04X, significand=0x%08lX %08lX\n",
@@ -1869,6 +1880,15 @@ void int_to_real(const temp_int * a, temp_real * b)
 
 /* logarithm functions */
 
+void f2xm1(const temp_real *x, temp_real *result)
+{
+	temp_real exp2_x, one;
+
+	f2exp(x, &exp2_x);						/* exp2_x = 2^x */
+	real_to_real(&CONST1, &one);			/* one = 1.0 */
+	fsub(&exp2_x, &one, result);			/* result = 2^x - 1 */
+}
+
 void fyl2x(const temp_real *a, const temp_real *b, temp_real *c)
 {
 	temp_real log2_a;
@@ -1880,28 +1900,47 @@ void fyl2x(const temp_real *a, const temp_real *b, temp_real *c)
 void flog2(const temp_real *a, temp_real *result) {
 	temp_real ln_a, ln2;
 
-	fln(a, &ln_a);  // ln(x)
-	long_to_temp((const long_real *)&CONSTLN2, &ln2);
+	fln(a, &ln_a);							/* ln(x) */
+	real_to_real(&CONSTLN2, &ln2);
 	fdiv(&ln_a, &ln2, result);
 }
 
 #define MAX_ITER 50
-void fexp(const temp_real *x, temp_real *result) {
-	temp_real term, sum, factor;
+void fexp(const temp_real *x, temp_real *result)
+{
+	temp_real term, sum;
 	int i;
+	temp_int ti;
+	temp_real real_i;
+	temp_real x_copy = *x;
 
-	factor = *x;      // x^1
-	long_to_temp((const long_real *)&CONST1, &sum);
-	term = factor;
+	real_to_real(&CONST1, &sum);		/* sum = 1 */
+	real_to_real(&x_copy, &term);		/* term = x */
 
-	for (i = 2; i < MAX_ITER; i++) {
-		fmul(&term, &factor, &term);  // term = x^i / i!
-		fdiv(&term, (const temp_real *)&i, &term);  // div i!
+	fadd(&sum, &term, &sum);			/* sum += x */
 
-		fadd(&sum, &term, &sum);
+	for (i = 2; i < MAX_ITER; i++)
+	{
+		ti.a = (signed short)i;
+		ti.b = 0;
+		ti.sign = 0;
+		int_to_real(&ti, &real_i);
+
+		fmul(&term, &x_copy, &term);	/* term = term * x */
+		fdiv(&term, &real_i, &term);	/* term = term / i */
+		fadd(&sum, &term, &sum);		/* sum += term */
 	}
 
 	*result = sum;
+}
+
+void f2exp(const temp_real *x, temp_real *result)
+{
+	temp_real ln2, scaled;
+
+	real_to_real(&CONSTLN2, &ln2);			/* ln2 = ln(2) */
+	fmul(x, &ln2, &scaled);					/* scaled = x * ln(2) */
+	fexp(&scaled, result);					/* result = e^(x * ln(2)) = 2^x */
 }
 
 void fln(const temp_real *x, temp_real *result)
@@ -1912,10 +1951,10 @@ void fln(const temp_real *x, temp_real *result)
 	temp_real diff;
 	temp_real one;
 
-	long_to_temp((const long_real *)&CONST1, &one);
+	real_to_real((temp_real*)&CONST1, &one);
 
 	if (x->exponent == 0 && x->a == 0 && x->b == 0) {
-		long_to_temp((const long_real *)&NEG_INF, result);
+		real_to_real(&NEG_INF, result);
 		return;
 	}
 
@@ -1923,19 +1962,16 @@ void fln(const temp_real *x, temp_real *result)
 	fsub(&guess, &one, &guess);
 
 	while (iter < MAX_ITER) {
-		// f(guess) = e^guess - x
 		fexp(&guess, &f);
 		fsub(&f, x, &f);
 
-		// f'(guess) = e^guess
-		fexp(&guess, &f_prime);					// f_prime = e^guess
+		fexp(&guess, &f_prime);					/* f_prime = e^guess */
 
-		// New guess = guess - f / f_prime
-		fdiv(&f, &f_prime, &new_guess);			// new_guess = f / f_prime
-		fsub(&guess, &new_guess, &new_guess);	// new_guess = guess - f / f_prime
+		fdiv(&f, &f_prime, &new_guess);			/* new_guess = f / f_prime */
+		fsub(&guess, &new_guess, &new_guess);	/* new_guess = guess - f / f_prime */
 
-		fsub(&guess, &new_guess, &diff);		// diff = guess - new_guess
-		diff.exponent &= 0x7fff;				// fabs(diff)
+		fsub(&guess, &new_guess, &diff);		/* diff = guess - new_guess */
+		diff.exponent &= 0x7fff;				/* fabs(diff) */
 
 		if (diff.exponent == 0 && diff.a == 0 && diff.b == 0)
 			break;
