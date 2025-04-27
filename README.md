@@ -1,5 +1,6 @@
 # FPU Emulation Revival for i486SX on NetBSD
 
+<img src="media/i486sx_fpu_emulation.jpg" width="200" align="right" alt="NetBSD 10.x with FPU_emulation on i486sx" />
 This retro-computing project restores support for x87 floating-point unit (FPU) emulation in the NetBSD kernel,
 targeting legacy 486SX-class processors without hardware FPUs. It brings back the original `MATH_EMULATE` option into
 NetBSD 10.x and beyond, as well as reverts and reworks the changes introduced in
@@ -81,8 +82,6 @@ The author is not responsible for any issues caused by its use.
 | `f2xm1`      | ✅ OK   | Compute 2^x - 1 for ST(0)                          | `D9 F0`    | `f2xm1`              |
 | `fpatan`     | ❌ N/A  | Compute arctangent(ST(1)/ST(0)) and pop            | `D9 F3`    | `fpatan`             |
 | `fsqrt`      | ❌ N/A  | Compute square root of ST(0)                       | `D9 FA`    | `fsqrt`              |
-
-<img src="media/i486sx_fpu_emulation.jpg" width="600" alt="NetBSD 10.x with FPU_emulation on i486sx" />
 
 ## Installation
 
