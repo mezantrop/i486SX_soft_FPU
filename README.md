@@ -1,6 +1,6 @@
 # FPU Emulation Revival for i486SX on NetBSD
 
-<img src="media/i486sx_fpu_emulation.jpg" width="300" align="right" alt="NetBSD 10.x with FPU_emulation on i486sx" />
+<img src="media/i486sx_fpu_emulation.jpg" width="260" align="right" alt="NetBSD 10.x with FPU_emulation on i486sx" />
 This retro-computing project restores support for x87 floating-point unit (FPU) emulation in the NetBSD kernel,
 targeting legacy 486SX-class processors without hardware FPUs. It brings back the original `MATH_EMULATE` option into
 NetBSD 10.x and beyond, as well as reverts and reworks the changes introduced in
