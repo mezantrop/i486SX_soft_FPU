@@ -14,7 +14,7 @@ The author is not responsible for any issues caused by its use.
 
 ### Notes
 
-- `fyl2x` seems to work properly on FPU, but when executed from `libc` `log` functions bring incorrect results
+- `fyl2x` seems to work properly on FPU, but when executed from `libc`, `log` functions bring incorrect results
 - Some operations have hard-to-detect issues with precision
 
 ## x87 FPU Emulated Instructions
