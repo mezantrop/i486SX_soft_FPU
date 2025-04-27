@@ -452,16 +452,12 @@ done:
 	switch ((code>>3) & 0xe7) {
 	case 0x22:
 		put_short_real(PST(0),info,code);
-
 		dump_fpustack();		/* DEBUG */
-
 		return(0);
 	case 0x23:
 		put_short_real(PST(0),info,code);
 		fpop();
-
 		dump_fpustack();		/* DEBUG */
-
 		return(0);
 	case 0x24:
 		address = ea(info,code);
@@ -685,7 +681,6 @@ static temp_real_unaligned * __st(int i)
 {
 	i += I387.swd >> 11;
 	i &= 7;
-	/* return (temp_real_unaligned *) (i*10 + (char *)(I387.st_space)); */
 	return &I387.st_space[i];
 }
 
@@ -1959,29 +1954,32 @@ void flog2(const temp_real *a, temp_real *result) {
 }
 
 #define MAX_ITER 50
-void fexp(const temp_real *x, temp_real *result) {
-	temp_real term, sum, factor;
+void fexp(const temp_real *x, temp_real *result)
+{
+	temp_real term, sum;
 	int i;
 	temp_int ti;
 	temp_real real_i;
+	temp_real x_copy = *x;
 
 	printf("DEBUG: fexp(): input: exponent: %04x, significand: %08lx %08lx\n",
 		   x->exponent, x->a, x->b);
 
-	factor = *x;
-	real_to_real(&CONST1, &sum);
-	term = factor;
+	real_to_real(&CONST1, &sum);		/* sum = 1 */
+	real_to_real(&x_copy, &term);		/* term = x */
 
-	for (i = 2; i < MAX_ITER; i++) {
-		fmul(&term, &factor, &term);
+	fadd(&sum, &term, &sum);			/* sum += x */
 
+	for (i = 2; i < MAX_ITER; i++)
+	{
 		ti.a = (signed short)i;
 		ti.b = 0;
 		ti.sign = 0;
 		int_to_real(&ti, &real_i);
 
-		fdiv(&term, &real_i, &term);
-		fadd(&sum, &term, &sum);
+		fmul(&term, &x_copy, &term);	/* term = term * x */
+		fdiv(&term, &real_i, &term);	/* term = term / i */
+		fadd(&sum, &term, &sum);		/* sum += term */
 	}
 
 	*result = sum;

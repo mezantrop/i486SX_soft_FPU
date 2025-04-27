@@ -1638,7 +1638,6 @@ void temp_to_short(const temp_real * a, short_real * b)
 /*	printf("DEBUG: temp_to_short() result: 0x%08lX\n", *b); */
 }
 
-
 void temp_to_long(const temp_real * a, long_real * b)
 {
 /*	printf("DEBUG: temp_to_long() input: exponent=0x%04X, significand=0x%08lX %08lX\n",
@@ -1885,9 +1884,9 @@ void f2xm1(const temp_real *x, temp_real *result)
 {
 	temp_real exp2_x, one;
 
-	f2exp(x, &exp2_x);							/* exp2_x = 2^x */
-	real_to_real(&CONST1, &one);	/* one = 1.0 */
-	fsub(&exp2_x, &one, result);				/* result = 2^x - 1 */
+	f2exp(x, &exp2_x);						/* exp2_x = 2^x */
+	real_to_real(&CONST1, &one);			/* one = 1.0 */
+	fsub(&exp2_x, &one, result);			/* result = 2^x - 1 */
 }
 
 void fyl2x(const temp_real *a, const temp_real *b, temp_real *c)
@@ -1901,25 +1900,35 @@ void fyl2x(const temp_real *a, const temp_real *b, temp_real *c)
 void flog2(const temp_real *a, temp_real *result) {
 	temp_real ln_a, ln2;
 
-	fln(a, &ln_a);  // ln(x)
+	fln(a, &ln_a);							/* ln(x) */
 	real_to_real(&CONSTLN2, &ln2);
 	fdiv(&ln_a, &ln2, result);
 }
 
 #define MAX_ITER 50
-void fexp(const temp_real *x, temp_real *result) {
-	temp_real term, sum, factor;
+void fexp(const temp_real *x, temp_real *result)
+{
+	temp_real term, sum;
 	int i;
+	temp_int ti;
+	temp_real real_i;
+	temp_real x_copy = *x;
 
-	factor = *x;      						/* x^1 */
-	real_to_real(&CONST1, &sum);
-	term = factor;
+	real_to_real(&CONST1, &sum);		/* sum = 1 */
+	real_to_real(&x_copy, &term);		/* term = x */
 
-	for (i = 2; i < MAX_ITER; i++) {
-		fmul(&term, &factor, &term);		/* term = x^i / i! */
-		fdiv(&term, (const temp_real *)&i, &term);	/*	div i! */
+	fadd(&sum, &term, &sum);			/* sum += x */
 
-		fadd(&sum, &term, &sum);
+	for (i = 2; i < MAX_ITER; i++)
+	{
+		ti.a = (signed short)i;
+		ti.b = 0;
+		ti.sign = 0;
+		int_to_real(&ti, &real_i);
+
+		fmul(&term, &x_copy, &term);	/* term = term * x */
+		fdiv(&term, &real_i, &term);	/* term = term / i */
+		fadd(&sum, &term, &sum);		/* sum += term */
 	}
 
 	*result = sum;

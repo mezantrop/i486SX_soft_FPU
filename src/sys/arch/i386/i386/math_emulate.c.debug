@@ -241,7 +241,7 @@ done:
 		return(0);
 	case 0x1f1: /* fyl2x */
 		fyl2x(PST(0),PST(1),&tmp);
-		real_to_real(&tmp,&ST(0));
+		real_to_real(&tmp,&ST(1));
 		fpop();
 		return(0);
 	case 0x1fc: /* frndint */
@@ -452,16 +452,12 @@ done:
 	switch ((code>>3) & 0xe7) {
 	case 0x22:
 		put_short_real(PST(0),info,code);
-
 		dump_fpustack();		/* DEBUG */
-
 		return(0);
 	case 0x23:
 		put_short_real(PST(0),info,code);
 		fpop();
-
 		dump_fpustack();		/* DEBUG */
-
 		return(0);
 	case 0x24:
 		address = ea(info,code);
@@ -685,7 +681,6 @@ static temp_real_unaligned * __st(int i)
 {
 	i += I387.swd >> 11;
 	i &= 7;
-	/* return (temp_real_unaligned *) (i*10 + (char *)(I387.st_space)); */
 	return &I387.st_space[i];
 }
 
@@ -1492,7 +1487,7 @@ void fadd(const temp_real * src1, const temp_real * src2, temp_real * result)
 */
 	unsignify(&a);
 
-	printf("DEBUG fadd() result: exponent: %04x, significand: %08lx %08lx\n",
+	printf("DEBUG: fadd() result: exponent: %04x, significand: %08lx %08lx\n",
 		a.exponent, a.a, a.b);
 
 /*	dump_fpustack(); */
@@ -1926,7 +1921,6 @@ void f2xm1(const temp_real *x, temp_real *result)
 
 	printf("DEBUG: f2xm1(): result: exponent: %04x, significand: %08lx %08lx\n",
 		result->exponent, result->a, result->b);
-
 }
 
 void fyl2x(const temp_real *a, const temp_real *b, temp_real *c)
@@ -1948,37 +1942,66 @@ void fyl2x(const temp_real *a, const temp_real *b, temp_real *c)
 void flog2(const temp_real *a, temp_real *result) {
 	temp_real ln_a, ln2;
 
+	printf("DEBUG: flog2(): input: exponent: %04x, significand: %08lx %08lx\n",
+		a->exponent, a->a, a->b);
+
 	fln(a, &ln_a);							/* ln(x) */
 	real_to_real(&CONSTLN2, &ln2);
 	fdiv(&ln_a, &ln2, result);
+
+	printf("DEBUG: flog2(): result: exponent: %04x, significand: %08lx %08lx\n",
+		result->exponent, result->a, result->b);
 }
 
 #define MAX_ITER 50
-void fexp(const temp_real *x, temp_real *result) {
-	temp_real term, sum, factor;
+void fexp(const temp_real *x, temp_real *result)
+{
+	temp_real term, sum;
 	int i;
+	temp_int ti;
+	temp_real real_i;
+	temp_real x_copy = *x;
 
-	factor = *x;      						/* x^1 */
-	real_to_real(&CONST1, &sum);
-	term = factor;
+	printf("DEBUG: fexp(): input: exponent: %04x, significand: %08lx %08lx\n",
+		   x->exponent, x->a, x->b);
 
-	for (i = 2; i < MAX_ITER; i++) {
-		fmul(&term, &factor, &term);		/* term = x^i / i! */
-		fdiv(&term, (const temp_real *)&i, &term);	/*	div i! */
+	real_to_real(&CONST1, &sum);		/* sum = 1 */
+	real_to_real(&x_copy, &term);		/* term = x */
 
-		fadd(&sum, &term, &sum);
+	fadd(&sum, &term, &sum);			/* sum += x */
+
+	for (i = 2; i < MAX_ITER; i++)
+	{
+		ti.a = (signed short)i;
+		ti.b = 0;
+		ti.sign = 0;
+		int_to_real(&ti, &real_i);
+
+		fmul(&term, &x_copy, &term);	/* term = term * x */
+		fdiv(&term, &real_i, &term);	/* term = term / i */
+		fadd(&sum, &term, &sum);		/* sum += term */
 	}
 
 	*result = sum;
+
+	printf("DEBUG: fexp(): result: exponent: %04x, significand: %08lx %08lx\n",
+		   result->exponent, result->a, result->b);
 }
 
 void f2exp(const temp_real *x, temp_real *result)
 {
 	temp_real ln2, scaled;
 
+	printf("DEBUG: f2exp(): input: exponent: %04x, significand: %08lx %08lx\n",
+		x->exponent, x->a, x->b);
+
 	real_to_real(&CONSTLN2, &ln2);			/* ln2 = ln(2) */
 	fmul(x, &ln2, &scaled);					/* scaled = x * ln(2) */
 	fexp(&scaled, result);					/* result = e^(x * ln(2)) = 2^x */
+
+	printf("DEBUG: f2exp(): result: exponent: %04x, significand: %08lx %08lx\n",
+		result->exponent, result->a, result->b);
+
 }
 
 void fln(const temp_real *x, temp_real *result)
@@ -1988,6 +2011,10 @@ void fln(const temp_real *x, temp_real *result)
 	int iter = 0;
 	temp_real diff;
 	temp_real one;
+
+
+	printf("DEBUG: fln(): input: exponent: %04x, significand: %08lx %08lx\n",
+		x->exponent, x->a, x->b);
 
 	real_to_real((temp_real*)&CONST1, &one);
 
@@ -2019,6 +2046,9 @@ void fln(const temp_real *x, temp_real *result)
 	}
 
 	*result = guess;
+
+	printf("DEBUG: fln(): result: exponent: %04x, significand: %08lx %08lx\n",
+		result->exponent, result->a, result->b);
 }
 
 
