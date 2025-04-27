@@ -1,7 +1,5 @@
 /*	$NetBSD: math_emulate.c,v 1.32 2007/01/24 13:08:13 hubertf Exp $	*/
 
-/* Version with debug messages */
-
 /*
  * expediant "port" of linux 8087 emulator to 386BSD, with apologies -wfj
  */
@@ -88,7 +86,7 @@ int subyte(void *addr, int value);
 int susword(void *addr, int value);
 int suword(void *addr, int value);
 
-void dump_fpustack(void);
+/* void dump_fpustack(void); */
 
 
 #define	fninit()	do { \
@@ -107,16 +105,16 @@ math_emulate(struct trapframe *info, ksiginfo_t *ksi) {
 	int override_seg, override_addrsize, override_datasize;
 	int prefix;
 
-	static int instruction_counter = 0;  /* Global instruction counter */
+/*	static int instruction_counter = 0; */ /* Global instruction counter */
 
-	printf("\n========== FPU INSTRUCTION #%d ==========\n",
-		instruction_counter++);
+/*	printf("\n========== FPU INSTRUCTION #%d ==========\n",
+		instruction_counter++); */
 
-	u_char *instr = (u_char *)info->tf_eip;
+/*	u_char *instr = (u_char *)info->tf_eip;
 	printf("math_emulate: DEBUG: EIP=0x%08x ESP=0x%04x OPCODE=%02x %02x %02x %02x %02x %02x %02x %02x\n",
 		info->tf_eip, info->tf_esp,
 		instr[0], instr[1], instr[2], instr[3],
-		instr[4], instr[5], instr[6], instr[7]);
+		instr[4], instr[5], instr[6], instr[7]); */
 
 
 	override_seg = override_addrsize = override_datasize = 0;
@@ -187,13 +185,13 @@ math_emulate(struct trapframe *info, ksiginfo_t *ksi) {
 done:
 	code = htons(fusword((u_short *) info->tf_eip)) & 0x7ff;
 
-	printf("DEBUG: CODE: 0x%04x\n", code);
+/*	printf("DEBUG: CODE: 0x%04x\n", code); */
 	info->tf_eip += 2;
 	*((u_short *) &I387.fcs) = (u_short) info->tf_cs;
 	*((u_short *) &I387.fcs + 1) = code;
 
-	printf("DEBUG: FPU stack before OP\n");
-	dump_fpustack();
+/*	printf("DEBUG: FPU stack before OP\n");
+	dump_fpustack(); */
 
 	switch (code) {
 	case 0x1d0: /* fnop */
@@ -240,8 +238,8 @@ done:
 		real_to_real(&tmp, &ST(0));
 		return(0);
 	case 0x1f1: /* fyl2x */
-		fyl2x(PST(0),PST(1),&tmp);
-		real_to_real(&tmp,&ST(1));
+		fyl2x(PST(0), PST(1), &tmp);
+		real_to_real(&tmp, &ST(0));
 		fpop();
 		return(0);
 	case 0x1fc: /* frndint */
@@ -295,7 +293,7 @@ done:
 		math_abort(info, ksi, SIGILL, ILL_ILLOPC);
 	}
 
-	printf("DEBUG: CODE >> 3: 0x%04x\n", code >> 3);
+/*	printf("DEBUG: CODE >> 3: 0x%04x\n", code >> 3); */
 
 	switch (code >> 3) {
 	case 0x18: /* fadd */
@@ -447,17 +445,17 @@ done:
 		return(0);
 	}
 
-	printf("DEBUG: (CODE >> 3) & 0xe7: 0x%04x\n", (code >> 3) & 0xe7);
+/*	printf("DEBUG: (CODE >> 3) & 0xe7: 0x%04x\n", (code >> 3) & 0xe7); */
 
 	switch ((code>>3) & 0xe7) {
 	case 0x22:
 		put_short_real(PST(0),info,code);
-		dump_fpustack();		/* DEBUG */
+/*		dump_fpustack(); */		/* DEBUG */
 		return(0);
 	case 0x23:
 		put_short_real(PST(0),info,code);
 		fpop();
-		dump_fpustack();		/* DEBUG */
+/*		dump_fpustack(); */		/* DEBUG */
 		return(0);
 	case 0x24:
 		address = ea(info,code);
@@ -489,15 +487,8 @@ done:
 		real_to_real(&tmp,&ST(0));
 		return(0);
 	case 0x67:
-		printf("DEBUG: === START 0x67 ===\n");
-
-		dump_fpustack();
 		put_temp_real(PST(0),info,code);
 		fpop();
-		dump_fpustack();
-
-		printf("DEBUG: === END 0x67 ===\n");
-
 		return(0);
 	case 0xa2:
 		put_long_real(PST(0),info,code);
@@ -546,41 +537,24 @@ done:
 		return(0);
 	}
 
-	printf("DEBUG: (CODE >> 9): 0x%04x\n", code >> 9);
+/*	printf("DEBUG: (CODE >> 9): 0x%04x\n", code >> 9); */
 
 	switch (code >> 9) {
 	case 0:
-		printf("DEBUG: Calling get_short_real()\n");
-
 		get_short_real(&tmp,info,code);
-
-		printf("DEBUG: Returned from get_short_real()\n");
-
 		break;
 	case 1:
-		printf("DEBUG: Calling get_long_int()\n");
-
 		get_long_int(&tmp,info,code);
-
-		printf("DEBUG: Returned from get_long_int()\n");
-
 		break;
 	case 2:
-		printf("DEBUG: Calling get_long_real()\n");
-
 		get_long_real(&tmp,info,code);
-
-		printf("DEBUG: Returned from get_long_real()\n");
-
 		break;
 	case 3:
 	case 4:
-		printf("DEBUG: Calling get_short_int()\n");
 		get_short_int(&tmp,info,code);
-		printf("DEBUG: Returned from get_short_int()\n");
 	}
 
-	printf("DEBUG: (CODE >> 3) & 0x27): 0x%04x\n", (code>>3) & 0x27);
+	/* printf("DEBUG: (CODE >> 3) & 0x27): 0x%04x\n", (code>>3) & 0x27); */
 
 	switch ((code>>3) & 0x27) {
 	case 0:
@@ -618,7 +592,7 @@ done:
 		return(0);
 	}
 
-	printf("DEBUG: (CODE & 0x138): 0x%04x\n", code & 0x138);
+/*	printf("DEBUG: (CODE & 0x138): 0x%04x\n", code & 0x138); */
 
 	if ((code & 0x138) == 0x100) {
 		fpush();
@@ -670,11 +644,13 @@ static void fxchg(temp_real_unaligned * a, temp_real_unaligned * b)
 {
 	temp_real_unaligned c;
 
-	printf("DEBUG: Entering fxchg()\n");
+/*	printf("DEBUG: Entering fxchg()\n"); */
+
 	c = *a;
 	*a = *b;
 	*b = c;
-	printf("DEBUG: Leaving fxchg()\n");
+/*	printf("DEBUG: Leaving fxchg()\n"); */
+
 }
 
 static temp_real_unaligned * __st(int i)
@@ -806,7 +782,7 @@ char * ea(struct trapframe * info, u_short code)
 #endif
 	}
 
-	printf("DEBUG: ea(): mod: %d, rm: %d, offset: %x\n", mod, rm, offset);
+/*	printf("DEBUG: ea(): mod: %d, rm: %d, offset: %x\n", mod, rm, offset); */
 
 	I387.foo = offset;
 	I387.fos = 0x17;
@@ -832,16 +808,16 @@ void get_short_real(temp_real * tmp,
 
 	addr = ea(info,code);
 
-	printf("DEBUG: get_short_real(): ea() -> addr: %p\n", addr);
+/*	printf("DEBUG: get_short_real(): ea() -> addr: %p\n", addr); */
 
 	sr = fuword((u_long *) addr);
 
-	printf("DEBUG: get_short_real(): fuword() -> %lx\n", sr);
+/*	printf("DEBUG: get_short_real(): fuword() -> %lx\n", sr); */
 
 	short_to_temp(&sr,tmp);
 
-	printf("DEBUG: short_to_temp(): result: exponent: %04x, significand: %08lx %08lx\n",
-		tmp->exponent, tmp->a, tmp->b);
+/*	printf("DEBUG: short_to_temp(): result: exponent: %04x, significand: %08lx %08lx\n",
+		tmp->exponent, tmp->a, tmp->b); */
 }
 
 void get_long_real(temp_real * tmp,
@@ -852,18 +828,18 @@ void get_long_real(temp_real * tmp,
 
 	addr = ea(info,code);
 
-	printf("DEBUG: get_long_real(): ea() -> addr: %p\n", addr);
+/*	printf("DEBUG: get_long_real(): ea() -> addr: %p\n", addr); */
 
 	lr.a = fuword((u_long *) addr);
 	lr.b = fuword((u_long *) addr + 1);
 
-	printf("DEBUG: get_long_real(): fuword() -> lr.a: %lx\n", lr.a);
-	printf("DEBUG: get_long_real(): fuword() -> lr.b: %lx\n", lr.b);
+/*	printf("DEBUG: get_long_real(): fuword() -> lr.a: %lx\n", lr.a);
+	printf("DEBUG: get_long_real(): fuword() -> lr.b: %lx\n", lr.b); */
 
 	long_to_temp(&lr,tmp);
 
-	printf("DEBUG: tmp after long_to_temp(): exponent: %04x, significand: %08lx %08lx\n",
-		tmp->exponent, tmp->a, tmp->b);
+/*	printf("DEBUG: tmp after long_to_temp(): exponent: %04x, significand: %08lx %08lx\n",
+		tmp->exponent, tmp->a, tmp->b); */
 }
 
 void get_temp_real(temp_real * tmp,
@@ -873,16 +849,16 @@ void get_temp_real(temp_real * tmp,
 
 	addr = ea(info,code);
 
-	printf("DEBUG: get_temp_real(): ea() -> addr: %p\n", addr);
+/*	printf("DEBUG: get_temp_real(): ea() -> addr: %p\n", addr); */
 
 	tmp->a = fuword((u_long *) addr);
 	tmp->b = fuword((u_long *) addr + 1);
 	tmp->exponent = fusword((u_short *) addr + 4);
 
-	printf("DEBUG: get_temp_real(): fuword() -> tmp->a: %lx\n", tmp->a);
+/*	printf("DEBUG: get_temp_real(): fuword() -> tmp->a: %lx\n", tmp->a);
 	printf("DEBUG: get_temp_real(): fuword() -> tmp->b: %lx\n", tmp->b);
 	printf("DEBUG: get_temp_real(): fusword() -> tmp->exponent: %x\n",
-		tmp->exponent);
+		tmp->exponent); */
 }
 
 void get_short_int(temp_real * tmp,
@@ -893,19 +869,19 @@ void get_short_int(temp_real * tmp,
 
 	addr = ea(info,code);
 
-	printf("DEBUG: get_short_int(): ea() -> addr: %p\n", addr);
+/*	printf("DEBUG: get_short_int(): ea() -> addr: %p\n", addr); */
 
 	ti.a = (signed short) fusword((u_short *) addr);
 	ti.b = 0;
 
-	printf("DEBUG: get_short_int(): fuword() -> ti.a: %lx\n", ti.a);
+/*	printf("DEBUG: get_short_int(): fuword() -> ti.a: %lx\n", ti.a); */
 
 
 	if ((ti.sign = (ti.a < 0)) != 0)
 		ti.a = - ti.a;
 
-	printf("DEBUG: get_long_int(): final -> ti.sign: %x ti.a: %lx ti.b: %lx\n",
-		ti.sign, ti.a, ti.b);
+/*	printf("DEBUG: get_long_int(): final -> ti.sign: %x ti.a: %lx ti.b: %lx\n",
+		ti.sign, ti.a, ti.b); */
 
 	int_to_real(&ti,tmp);
 }
@@ -918,19 +894,19 @@ void get_long_int(temp_real * tmp,
 
 	addr = ea(info,code);
 
-	printf("DEBUG: get_long_int(): ea() -> addr: %p\n", addr);
+/*	printf("DEBUG: get_long_int(): ea() -> addr: %p\n", addr); */
 
 	ti.a = fuword((u_long *) addr);
 	ti.b = 0;
 
-	printf("DEBUG: get_long_int(): fuword() -> ti.a: %lx\n", ti.a);
+/*	printf("DEBUG: get_long_int(): fuword() -> ti.a: %lx\n", ti.a); */
 
 	if ((ti.sign = (ti.a < 0)) != 0)
 		ti.a = - ti.a;
 
 
-	printf("DEBUG: get_long_int(): final -> ti.sign: %x ti.a: %lx ti.b: %lx\n",
-		ti.sign, ti.a, ti.b);
+/*	printf("DEBUG: get_long_int(): final -> ti.sign: %x ti.a: %lx ti.b: %lx\n",
+		ti.sign, ti.a, ti.b); */
 
 	int_to_real(&ti,tmp);
 }
@@ -992,21 +968,21 @@ void put_short_real(const temp_real * tmp,
 	char * addr;
 	short_real sr;
 
-	short_real tsr;		/* DEBUG */
+/*	short_real tsr;	*/	/* DEBUG */
 
 	addr = ea(info,code);
 
-	tsr = fuword((u_long *) addr);
-	printf("DEBUG: put_short_real(): before temp_to_short() -> %lx\n", tsr);
+/*	tsr = fuword((u_long *) addr);
+	printf("DEBUG: put_short_real(): before temp_to_short() -> %lx\n", tsr); */
 
 	temp_to_short(tmp,&sr);
 
-	printf("DEBUG: put_short_real(): temp_to_short() -> %lx\n", sr);
+/*	printf("DEBUG: put_short_real(): temp_to_short() -> %lx\n", sr); */
 
 	suword((u_long *) addr,sr);
 
-	tsr = fuword((u_long *) addr);
-	printf("DEBUG: put_short_real(): suword() -> %lx\n", tsr);
+/*	tsr = fuword((u_long *) addr);
+	printf("DEBUG: put_short_real(): suword() -> %lx\n", tsr); */
 
 }
 
@@ -1026,24 +1002,24 @@ void put_temp_real(const temp_real * tmp,
 	struct trapframe * info, u_short code)
 {
 	char * addr;
-	temp_real tdbg;
+	/* temp_real tdbg; */	/* DEBUG */
 
 	addr = ea(info,code);
 
-	printf("DEBUG: put_temp_real(): input: exponent: %04x, significand: %08lx %08lx\n",
+/*	printf("DEBUG: put_temp_real(): input: exponent: %04x, significand: %08lx %08lx\n",
 		tmp->exponent, tmp->a, tmp->b);
-	printf("DEBUG: put_temp_real(): ea() -> addr: %p\n", addr);
+	printf("DEBUG: put_temp_real(): ea() -> addr: %p\n", addr); */
 
 	suword((u_long *) addr, tmp->a);
 	suword((u_long *) addr + 1, tmp->b);
 	susword((u_short *) addr + 4, tmp->exponent);
 
-	tdbg.a = fuword((u_long *) addr);
+/*	tdbg.a = fuword((u_long *) addr);
 	tdbg.b = fuword((u_long *) addr + 1);
 	tdbg.exponent = fusword((u_short *) addr + 4);
 
 	printf("DEBUG: put_temp_real(): check: exponent: %04x, significand: %08lx %08lx\n",
-		tdbg.exponent, tdbg.a, tdbg.b);
+		tdbg.exponent, tdbg.a, tdbg.b); */
 }
 
 void put_short_int(const temp_real * tmp,
@@ -1181,10 +1157,10 @@ void fmul(const temp_real * src1, const temp_real * src2, temp_real * result)
 	int i,sign;
 	u_long tmp[4] = {0,0,0,0};
 
-	printf("DEBUG: fmul() src1: exponent: %04x, significand: %08lx %08lx\n",
+/*	printf("DEBUG: fmul() src1: exponent: %04x, significand: %08lx %08lx\n",
 		src1->exponent, src1->a, src1->b);
 	printf("DEBUG: fmul() src2: exponent: %04x, significand: %08lx %08lx\n",
-		src2->exponent, src2->a, src2->b);
+		src2->exponent, src2->a, src2->b); */
 
 	sign = (src1->exponent ^ src2->exponent) & 0x8000;
 	i = (src1->exponent & 0x7fff) + (src2->exponent & 0x7fff) - 16383 + 1;
@@ -1210,8 +1186,8 @@ void fmul(const temp_real * src1, const temp_real * src2, temp_real * result)
 	result->a = tmp[2];
 	result->b = tmp[3];
 
-	printf("DEBUG: fmul() result: exponent: %04x, significand: %08lx %08lx\n",
-		result->exponent, result->a, result->b);
+/*	printf("DEBUG: fmul() result: exponent: %04x, significand: %08lx %08lx\n",
+		result->exponent, result->a, result->b); */
 }
 
 /*
@@ -1285,10 +1261,10 @@ void fdiv(const temp_real * src1, const temp_real * src2, temp_real * result)
 	int i,sign;
 	u_long a[4],b[4],tmp[4] = {0,0,0,0};
 
-	printf("DEBUG: fdiv() src1: exponent: %04x, significand: %08lx %08lx\n",
+/*	printf("DEBUG: fdiv() src1: exponent: %04x, significand: %08lx %08lx\n",
 		src1->exponent, src1->a, src1->b);
 	printf("DEBUG: fdiv() src2: exponent: %04x, significand: %08lx %08lx\n",
-		src2->exponent, src2->a, src2->b);
+		src2->exponent, src2->a, src2->b); */
 
 	sign = (src1->exponent ^ src2->exponent) & 0x8000;
 	if (!(src2->a || src2->b)) {
@@ -1332,8 +1308,8 @@ void fdiv(const temp_real * src1, const temp_real * src2, temp_real * result)
 	result->a = tmp[2];
 	result->b = tmp[3];
 
-	printf("DEBUG: fdiv() result: exponent: %04x, significand: %08lx %08lx\n",
-		result->exponent, result->a, result->b);
+/*	printf("DEBUG: fdiv() result: exponent: %04x, significand: %08lx %08lx\n",
+		result->exponent, result->a, result->b); */
 }
 
 /*
@@ -1432,10 +1408,10 @@ void fadd(const temp_real * src1, const temp_real * src2, temp_real * result)
 	x1 = src1->exponent & 0x7fff;
 	x2 = src2->exponent & 0x7fff;
 
-	printf("DEBUG: fadd() src1: exponent: %04x, significand: %08lx %08lx\n",
+/*	printf("DEBUG: fadd() src1: exponent: %04x, significand: %08lx %08lx\n",
 		src1->exponent, src1->a, src1->b);
 	printf("DEBUG: fadd() src2: exponent: %04x, significand: %08lx %08lx\n",
-		src2->exponent, src2->a, src2->b);
+		src2->exponent, src2->a, src2->b); */
 
 /*	dump_fpustack(); */
 	if (x1 > x2) {
@@ -1467,28 +1443,24 @@ void fadd(const temp_real * src1, const temp_real * src2, temp_real * result)
 		:"=r" (b.a),"=r" (b.b)
 		:"0" (b.a),"1" (b.b),"c" ((char) shft));
 
-/*	printf("DEBUG: fadd() after shifting b:\n");
-	printf("b (shifted): exponent: %04x, significand: %08lx %08lx\n",
+/*	printf("DEBUG: fadd() b (shifted): exponent: %04x, significand: %08lx %08lx\n",
 		b.exponent, b.a, b.b);
 */
 	signify(&a);
 	signify(&b);
 /*
-	printf("DEBUG: fadd() before addl:\n");
-	printf("a: exponent: %04x, significand: %08lx %08lx\n", a.exponent, a.a, a.b);
-	printf("b: exponent: %04x, significand: %08lx %08lx\n", b.exponent, b.a, b.b);
+	printf("DEBUG: fadd() before addl: a: exponent: %04x, significand: %08lx %08lx\n", a.exponent, a.a, a.b);
+	printf("DEBUG: fadd() before addl: b: exponent: %04x, significand: %08lx %08lx\n", b.exponent, b.a, b.b);
 */
 	__asm("addl %4,%0 ; adcl %5,%1"
 		:"=r" (a.a),"=r" (a.b)
 		:"0" (a.a),"1" (a.b),"g" (b.a),"g" (b.b));
 
-/*	printf("DEBUG: fadd() after addl:\n");
-	printf("a: exponent: %04x, significand: %08lx %08lx\n", a.exponent, a.a, a.b);
-*/
+/*	printf("DEBUG: fadd() after addl: a: exponent: %04x, significand: %08lx %08lx\n", a.exponent, a.a, a.b); */
 	unsignify(&a);
 
-	printf("DEBUG: fadd() result: exponent: %04x, significand: %08lx %08lx\n",
-		a.exponent, a.a, a.b);
+/*	printf("DEBUG fadd() result: exponent: %04x, significand: %08lx %08lx\n",
+		a.exponent, a.a, a.b); */
 
 /*	dump_fpustack(); */
 
@@ -1540,22 +1512,22 @@ void ftst(const temp_real * a)
 	clear_Cx();
 	b = *a;
 
-	printf("DEBUG: ftst(): before normalize(): b.exponent: 0x%04x, b.a: 0x%lx, b.b: 0x%lx\n",
-		b.exponent, b.a, b.b);
+/*	printf("DEBUG: ftst(): before normalize(): b.exponent: 0x%04x, b.a: 0x%lx, b.b: 0x%lx\n",
+		b.exponent, b.a, b.b); */
 
 	normalize(&b);
 
-	printf("DEBUG: ftst(): after normalize(): b.exponent: 0x%04x, b.a: %lx, b.b: %lx\n",
-		b.exponent, b.a, b.b);
+/*	printf("DEBUG: ftst(): after normalize(): b.exponent: 0x%04x, b.a: %lx, b.b: %lx\n",
+		b.exponent, b.a, b.b); */
 
 	if (b.a || b.b || b.exponent) {
 		if (b.exponent & 0x8000) {
 			set_C0();
-			printf("DEBUG: ftst(): set_C0()\n");
+/*			printf("DEBUG: ftst(): set_C0()\n"); */
 		}
 	} else
 		set_C3();
-		printf("DEBUG: ftst(): set_C3()\n");
+/*		printf("DEBUG: ftst(): set_C3()\n"); */
 }
 
 void fcom(const temp_real * src1, const temp_real * src2)
@@ -1568,7 +1540,7 @@ void fcom(const temp_real * src1, const temp_real * src2)
 	fadd(&a,src2,&a);
 	ftst(&a);
 
-	dump_fpustack();
+/*	dump_fpustack(); */
 }
 
 void fucom(const temp_real * src1, const temp_real * src2)
@@ -1598,7 +1570,7 @@ void fucom(const temp_real * src1, const temp_real * src2)
 void short_to_temp(const short_real * a, temp_real * b)
 {
 
-	printf("DEBUG: short_to_temp(): src: %lx\n", *a);
+/*	printf("DEBUG: short_to_temp(): src: %lx\n", *a); */
 
 	if (!(*a & 0x7fffffff)) {
 		b->a = b->b = 0;
@@ -1612,13 +1584,13 @@ void short_to_temp(const short_real * a, temp_real * b)
 	b->b = (*a<<8) | 0x80000000;
 	b->a = 0;
 
-	printf("DEBUG: short_to_temp(): result: exponent=0x%04X, significand=0x%08lX %08lX\n",
-		b->exponent, b->a, b->b);
+/*	printf("DEBUG: short_to_temp(): result: exponent=0x%04X, significand=0x%08lX %08lX\n",
+		b->exponent, b->a, b->b); */
 }
 
 void long_to_temp(const long_real * a, temp_real * b)
 {
-	printf("DEBUG: long_to_temp(): src a->a: %lx, a->b: %lx\n", a->a, a->b);
+/*	printf("DEBUG: long_to_temp(): src a->a: %lx, a->b: %lx\n", a->a, a->b); */
 
 	if (!a->a && !(a->b & 0x7fffffff)) {
 		b->a = b->b = 0;
@@ -1632,14 +1604,14 @@ void long_to_temp(const long_real * a, temp_real * b)
 	b->b = 0x80000000 | (a->b<<11) | (((u_long)a->a)>>21);
 	b->a = a->a<<11;
 
-	printf("DEBUG: long_to_temp(): result: exponent=0x%04X, significand=0x%08lX %08lX\n",
-		b->exponent, b->a, b->b);
+/*	printf("DEBUG: long_to_temp(): result: exponent=0x%04X, significand=0x%08lX %08lX\n",
+		b->exponent, b->a, b->b); */
 }
 
 void temp_to_short(const temp_real * a, short_real * b)
 {
-	printf("DEBUG: temp_to_short() input: exponent=0x%04X, significand=0x%08lX %08lX\n",
-		a->exponent, a->a, a->b);
+/*	printf("DEBUG: temp_to_short() input: exponent=0x%04X, significand=0x%08lX %08lX\n",
+		a->exponent, a->a, a->b); */
 
 	if (!(a->exponent & 0x7fff)) {
 		*b = (a->exponent)?0x80000000:0;
@@ -1663,13 +1635,13 @@ void temp_to_short(const temp_real * a, short_real * b)
 				++*b;
 			break;
 	}
-	printf("DEBUG: temp_to_short() result: 0x%08lX\n", *b);
+/*	printf("DEBUG: temp_to_short() result: 0x%08lX\n", *b); */
 }
 
 void temp_to_long(const temp_real * a, long_real * b)
 {
-	printf("DEBUG: temp_to_long() input: exponent=0x%04X, significand=0x%08lX %08lX\n",
-		a->exponent, a->a, a->b);
+/*	printf("DEBUG: temp_to_long() input: exponent=0x%04X, significand=0x%08lX %08lX\n",
+		a->exponent, a->a, a->b); */
 
 	if (!(a->exponent & 0x7fff)) {
 		b->a = 0;
@@ -1703,13 +1675,13 @@ void temp_to_long(const temp_real * a, long_real * b)
 			break;
 	}
 
-	printf("DEBUG: temp_to_long() result: 0x%08lX 0x%08lX\n", b->a, b->b);
+/*	printf("DEBUG: temp_to_long() result: 0x%08lX 0x%08lX\n", b->a, b->b); */
 }
 
 void frndint(const temp_real * a, temp_real * b)
 {
-	printf("DEBUG: frndint() input: exponent=0x%04X, significand=0x%08lX %08lX\n",
-		a->exponent, a->a, a->b);
+/*	printf("DEBUG: frndint() input: exponent=0x%04X, significand=0x%08lX %08lX\n",
+		a->exponent, a->a, a->b); */
 
 	int shft =  16383 + 63 - (a->exponent & 0x7fff);
 	u_long underflow;
@@ -1780,18 +1752,18 @@ void frndint(const temp_real * a, temp_real * b)
 	/* Restore sign bit from input value after rounding */
 	b->exponent = (a->exponent & 0x8000) | (b->exponent & 0x7fff);
 
-	printf("DEBUG: frndint() result: exponent=0x%04X, significand=0x%08lX %08lX\n",
-		b->exponent, b->a, b->b);
+/*	printf("DEBUG: frndint() result: exponent=0x%04X, significand=0x%08lX %08lX\n",
+		b->exponent, b->a, b->b); */
 }
 
 void Fscale(const temp_real *a, const temp_real *b, temp_real *c)
 {
 	temp_int ti;
 
-	printf("DEBUG: Fscale() input: exponent=0x%04X, significand=0x%08lX %08lX\n",
+/*	printf("DEBUG: Fscale() input: exponent=0x%04X, significand=0x%08lX %08lX\n",
 		a->exponent, a->a, a->b);
 	printf("DEBUG: Fscale() input: exponent=0x%04X, significand=0x%08lX %08lX\n",
-		b->exponent, b->a, b->b);
+		b->exponent, b->a, b->b); */
 
 	*c = *a;
 	if(!c->a && !c->b) {				/* 19 Sep 92*/
@@ -1805,15 +1777,15 @@ void Fscale(const temp_real *a, const temp_real *b, temp_real *c)
 	else
 		c->exponent = (u_short)((int)c->exponent + (int)ti.a);
 
-	printf("DEBUG: Fscale() result: exponent=0x%04X, significand=0x%08lX %08lX\n",
-		c->exponent, c->a, c->b);
+/*	printf("DEBUG: Fscale() result: exponent=0x%04X, significand=0x%08lX %08lX\n",
+		c->exponent, c->a, c->b); */
 }
 
 void real_to_int(const temp_real * a, temp_int * b)
 {
 
-	printf("DEBUG: real_to_int() input: exponent=0x%04X, significand=0x%08lX %08lX\n",
-		a->exponent, a->a, a->b);
+/*	printf("DEBUG: real_to_int() input: exponent=0x%04X, significand=0x%08lX %08lX\n",
+		a->exponent, a->a, a->b); */
 
 	int shft =  16383 + 63 - (a->exponent & 0x7fff);
 	u_long underflow;
@@ -1866,14 +1838,14 @@ void real_to_int(const temp_real * a, temp_int * b)
 					:"0" (b->a),"1" (b->b));
 			break;
 	}
-	printf("DEBUG: real_to_int() result: sign=0x%04X, significand=0x%08lX %08lX\n",
-		b->sign, b->a, b->b);
+/*	printf("DEBUG: real_to_int() result: sign=0x%04X, significand=0x%08lX %08lX\n",
+		b->sign, b->a, b->b); */
 }
 
 void int_to_real(const temp_int * a, temp_real * b)
 {
-	printf("DEBUG: int_to_real() input: sign=0x%x, a=0x%lx b=0x%lx\n",
-		a->sign, a->a, a->b);
+/*	printf("DEBUG: int_to_real() input: sign=0x%x, a=0x%lx b=0x%lx\n",
+		a->sign, a->a, a->b); */
 
 	b->a = a->a;
 	b->b = a->b;
@@ -1901,8 +1873,8 @@ void int_to_real(const temp_int * a, temp_real * b)
 			b->exponent, b->a, b->b); */
 	}
 
-	printf("DEBUG: int_to_real(): result: exponent: %04x, significand: %08lx %08lx\n",
-		b->exponent, b->a, b->b);
+/*	printf("DEBUG: int_to_real(): result: exponent: %04x, significand: %08lx %08lx\n",
+		b->exponent, b->a, b->b); */
 }
 
 
@@ -1912,45 +1884,25 @@ void f2xm1(const temp_real *x, temp_real *result)
 {
 	temp_real exp2_x, one;
 
-	printf("DEBUG: f2xm1(): input: exponent: %04x, significand: %08lx %08lx\n",
-		x->exponent, x->a, x->b);
-
 	f2exp(x, &exp2_x);						/* exp2_x = 2^x */
 	real_to_real(&CONST1, &one);			/* one = 1.0 */
 	fsub(&exp2_x, &one, result);			/* result = 2^x - 1 */
-
-	printf("DEBUG: f2xm1(): result: exponent: %04x, significand: %08lx %08lx\n",
-		result->exponent, result->a, result->b);
 }
 
 void fyl2x(const temp_real *a, const temp_real *b, temp_real *c)
 {
 	temp_real log2_a;
 
-	printf("DEBUG: fyl2x(): input: exponent: %04x, significand: %08lx %08lx\n",
-		a->exponent, a->a, a->b);
-	printf("DEBUG: fyl2x(): input: exponent: %04x, significand: %08lx %08lx\n",
-		b->exponent, b->a, b->b);
-
 	flog2(a, &log2_a);
 	fmul(b, &log2_a, c);
-
-	printf("DEBUG: fyl2x(): result: exponent: %04x, significand: %08lx %08lx\n",
-		c->exponent, c->a, c->b);
 }
 
 void flog2(const temp_real *a, temp_real *result) {
 	temp_real ln_a, ln2;
 
-	printf("DEBUG: flog2(): input: exponent: %04x, significand: %08lx %08lx\n",
-		a->exponent, a->a, a->b);
-
 	fln(a, &ln_a);							/* ln(x) */
 	real_to_real(&CONSTLN2, &ln2);
 	fdiv(&ln_a, &ln2, result);
-
-	printf("DEBUG: flog2(): result: exponent: %04x, significand: %08lx %08lx\n",
-		result->exponent, result->a, result->b);
 }
 
 #define MAX_ITER 50
@@ -1961,9 +1913,6 @@ void fexp(const temp_real *x, temp_real *result)
 	temp_int ti;
 	temp_real real_i;
 	temp_real x_copy = *x;
-
-	printf("DEBUG: fexp(): input: exponent: %04x, significand: %08lx %08lx\n",
-		   x->exponent, x->a, x->b);
 
 	real_to_real(&CONST1, &sum);		/* sum = 1 */
 	real_to_real(&x_copy, &term);		/* term = x */
@@ -1983,25 +1932,15 @@ void fexp(const temp_real *x, temp_real *result)
 	}
 
 	*result = sum;
-
-	printf("DEBUG: fexp(): result: exponent: %04x, significand: %08lx %08lx\n",
-		   result->exponent, result->a, result->b);
 }
 
 void f2exp(const temp_real *x, temp_real *result)
 {
 	temp_real ln2, scaled;
 
-	printf("DEBUG: f2exp(): input: exponent: %04x, significand: %08lx %08lx\n",
-		x->exponent, x->a, x->b);
-
 	real_to_real(&CONSTLN2, &ln2);			/* ln2 = ln(2) */
 	fmul(x, &ln2, &scaled);					/* scaled = x * ln(2) */
 	fexp(&scaled, result);					/* result = e^(x * ln(2)) = 2^x */
-
-	printf("DEBUG: f2exp(): result: exponent: %04x, significand: %08lx %08lx\n",
-		result->exponent, result->a, result->b);
-
 }
 
 void fln(const temp_real *x, temp_real *result)
@@ -2011,10 +1950,6 @@ void fln(const temp_real *x, temp_real *result)
 	int iter = 0;
 	temp_real diff;
 	temp_real one;
-
-
-	printf("DEBUG: fln(): input: exponent: %04x, significand: %08lx %08lx\n",
-		x->exponent, x->a, x->b);
 
 	real_to_real((temp_real*)&CONST1, &one);
 
@@ -2046,12 +1981,9 @@ void fln(const temp_real *x, temp_real *result)
 	}
 
 	*result = guess;
-
-	printf("DEBUG: fln(): result: exponent: %04x, significand: %08lx %08lx\n",
-		result->exponent, result->a, result->b);
 }
 
-
+/*
 void dump_fpustack(void) {
 	printf("DEBUG: FPU Stack Dump:\n");
 	for (int i = 0; i < 8; i++) {
@@ -2091,6 +2023,7 @@ void dump_fpustack(void) {
 		printf("\n");
 	}
 }
+*/
 
 #ifdef ORIGINAL_USERMODE
 #undef USERMODE

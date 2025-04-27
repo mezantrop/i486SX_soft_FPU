@@ -11,6 +11,11 @@ emulation support from the kernel.
 This project is a work in progress and may contain bugs or incomplete functionality. Use at your own risk.
 The author is not responsible for any issues caused by its use.
 
+### Notes
+
+- `fyl2x` seems to work properly on FPU, but when executed from `libc` `log` functions bring incorrect results
+- Some operations have hard-to-detect issues with precision
+
 ## x87 FPU Emulated Instructions
 
 ### 🧠 Control & Initialization
@@ -70,12 +75,14 @@ The author is not responsible for any issues caused by its use.
 
 | Instruction  | Status   | Description                                        | Opcode     | Example              |
 | ------------ | -------- | -------------------------------------------------- | ---------- | -------------------- |
-| `fyl2x`      | ⏳ TBD  | Compute y × log₂(x) (ST(1) × log₂(ST(0))) and pop  | `D9 F1`    | `fyl2x`              |
+| `fyl2x`      | ✅ OK   | Compute y × log₂(x) (ST(1) × log₂(ST(0))) and pop  | `D9 F1`    | `fyl2x`              |
 | `fyl2xp1`    | ❌ N/A  | Compute y × log₂(x+1) and pop                      | `D9 F9`    | `fyl2xp1`            |
 | `fxtract`    | ❌ N/A  | Extract: ST(0) → ST = significand, ST+1 = exponent | `D9 F4`    | `fxtract`            |
 | `f2xm1`      | ✅ OK   | Compute 2^x - 1 for ST(0)                          | `D9 F0`    | `f2xm1`              |
 | `fpatan`     | ❌ N/A  | Compute arctangent(ST(1)/ST(0)) and pop            | `D9 F3`    | `fpatan`             |
 | `fsqrt`      | ❌ N/A  | Compute square root of ST(0)                       | `D9 FA`    | `fsqrt`              |
+
+<img src="media/i486sx_fpu_emulation.jpg" width="600" alt="NetBSD 10.x with FPU_emulation on i486sx" />
 
 ## Installation
 
