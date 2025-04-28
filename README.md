@@ -77,7 +77,7 @@ The author is not responsible for any issues caused by its use.
 
 | Instruction  | Status   | Description                                        | Opcode     | Example              |
 | ------------ | -------- | -------------------------------------------------- | ---------- | -------------------- |
-| `fyl2x`      | ✅ OK   | Compute y × log₂(x) (ST(1) × log₂(ST(0))) and pop  | `D9 F1`    | `fyl2x`              |
+| `fyl2x`      | ⏳ TBD  | Compute y × log₂(x) (ST(1) × log₂(ST(0))) and pop  | `D9 F1`    | `fyl2x`              |
 | `fyl2xp1`    | ❌ N/A  | Compute y × log₂(x+1) and pop                      | `D9 F9`    | `fyl2xp1`            |
 | `fxtract`    | ❌ N/A  | Extract: ST(0) → ST = significand, ST+1 = exponent | `D9 F4`    | `fxtract`            |
 | `f2xm1`      | ✅ OK   | Compute 2^x - 1 for ST(0)                          | `D9 F0`    | `f2xm1`              |
