@@ -108,6 +108,15 @@ $ make
 Check [Releases](https://github.com/mezantrop/i486SX_soft_FPU/releases) for the compiled `netbsd` kernel with FPU-emulation
 as well, as the drive image
 
+## 86Box
+
+<img src="media/NetBSD-10.1_soft_FPU_86Box.png" width="600" alt="NetBSD-10.1 with soft_FPU_on i486sx@86Box" />
+
+- Install [86Box](https://86box.net)
+- Download NetBSD-10.1 prebuilt drive image from [Releases](https://github.com/mezantrop/i486SX_soft_FPU/releases)
+- Edit [sample 86Box configuration](examples/86Box/86box.cfg) to specify correct paths and host parameters. Don't forget
+to select i486SX and check that no FPU present.
+
 ## Contacts
 
 If you have an idea, a question, or have found a problem, feel free to open an issue or contact me directly:
