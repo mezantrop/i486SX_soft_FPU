@@ -121,6 +121,8 @@ To try FPU emulation on NetBSD it's convenient to use 86Box — a high-accuracy 
 - Edit [sample 86Box configuration](examples/86Box/86box.cfg) to specify correct paths and host parameters. Don't forget
 to select i486SX and check that no FPU present.
 
+<img src="media/NetBSD-10.1_soft_FPU_86Box_config.png" width="600" alt="NetBSD-10.1 with soft_FPU_on i486sx@Configure 86Box" />
+
 ## Contacts
 
 If you have an idea, a question, or have found a problem, feel free to open an issue or contact me directly:
